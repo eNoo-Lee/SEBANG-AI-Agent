@@ -11,7 +11,7 @@
     python server.py --data "\\\\파일서버\\공유폴더\\작업일보"   # 다른 PC에서 실행하고 파일서버에 저장
 
 접속: http://<서버 이름 또는 IP>:<포트>/
-처음 접속한 사람이 관리자 계정을 만든다. 이후 관리자가 '사용자 관리'에서 사번을 등록한다.
+처음 접속한 사람이 운영자 계정을 만든다. 이후 운영자가 '사용자 관리'에서 사번을 등록한다.
 
 저장 구조 (data 폴더):
     users.json                 사용자 (비밀번호는 해시로만 저장)
@@ -167,13 +167,14 @@ class Store:
     # 화면으로 보내도 되는 사용자 정보만 골라 줍니다(비밀번호 암호문은 절대 보내지 않음).
     def public_user(self, uid):
         u = self.users[uid]
-        return {"id": uid, "name": u["name"], "role": u["role"], "active": u.get("active", True), "created": u.get("created", "")}
+        return {"id": uid, "name": u["name"], "role": u["role"], "active": u.get("active", True), "created": u.get("created", ""),
+                "crew": u.get("crew", "")}  # crew = 소속 조 (A/B/C, 없으면 빈 값)
 
-    # 새 사용자를 등록합니다. role 은 admin(관리자) 또는 user(현장관리자).
-    def set_user(self, uid, name, password, role):
+    # 새 사용자를 등록합니다. role 은 admin(운영자), manager(관리자), user(현장관리자) 중 하나. 운영자만 사용자 관리와 일보 삭제를 할 수 있습니다.
+    def set_user(self, uid, name, password, role, crew=""):
         salt = secrets.token_hex(16)
         self.users[uid] = {"name": name, "role": role, "salt": salt, "hash": hash_pw(password, salt),
-                           "active": True, "created": now_iso()}
+                           "active": True, "created": now_iso(), "crew": crew}
         self._save_users()
 
     # 비밀번호를 바꿉니다(새 salt 로 다시 암호화).
@@ -190,7 +191,7 @@ class Store:
             return False
         return hmac.compare_digest(u["hash"], hash_pw(password, u["salt"]))
 
-    # 사용 중인 관리자 목록. "관리자가 한 명은 남아 있어야 한다"는 규칙을 검사할 때 씁니다.
+    # 사용 중인 운영자 목록. "운영자가 한 명은 남아 있어야 한다"는 규칙을 검사할 때 씁니다.
     def active_admins(self, without=None):
         return [i for i, u in self.users.items() if u["role"] == "admin" and u.get("active", True) and i != without]
 
@@ -275,13 +276,13 @@ class Handler(BaseHTTPRequestHandler):
             raise ApiError(400, "잘못된 요청입니다.")
         return obj
 
-    # 로그인했는지 확인합니다. admin=True 면 관리자인지도 확인합니다. 아니면 거절(401 또는 403).
+    # 로그인했는지 확인합니다. admin=True 면 운영자인지도 확인합니다. 아니면 거절(401 또는 403).
     def need_user(self, admin=False):
         user = self.store.session_user(self.token())
         if not user:
             raise ApiError(401, "로그인이 필요합니다.")
         if admin and user["role"] != "admin":
-            raise ApiError(403, "관리자만 할 수 있습니다.")
+            raise ApiError(403, "운영자만 할 수 있습니다.")
         return user
 
     # 모든 요청이 처음 들어오는 곳. 주소가 /api/ 로 시작하면 데이터 요청(api), 아니면 화면/글꼴 파일 요청(static)으로 보냅니다.
@@ -335,10 +336,10 @@ class Handler(BaseHTTPRequestHandler):
         if p == ["me"] and m == "GET":
             return self.send_json({"setup": not st.users, "user": st.session_user(self.token())})
 
-        # POST /api/setup : 처음 한 번만 가능한 관리자 계정 만들기. 사용자가 이미 있으면 거절
+        # POST /api/setup : 처음 한 번만 가능한 운영자 계정 만들기. 사용자가 이미 있으면 거절
         if p == ["setup"] and m == "POST":
             if st.users:
-                raise ApiError(403, "이미 관리자 계정이 있습니다.")
+                raise ApiError(403, "이미 운영자 계정이 있습니다.")
             b = self.body()
             uid, name, pw = self.clean_id(b.get("id")), self.clean_name(b.get("name")), self.clean_pw(b.get("password"))
             st.set_user(uid, name, pw, "admin")
@@ -377,7 +378,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"rev": st.rev, "unchanged": True})
             return self.send_json({"rev": st.rev, "reports": st.reports})
 
-        # PUT /api/reports/날짜 : 일보 저장(로그인한 누구나),  DELETE /api/reports/날짜 : 일보 삭제(관리자만)
+        # PUT /api/reports/날짜 : 일보 저장(로그인한 누구나),  DELETE /api/reports/날짜 : 일보 삭제(운영자만)
         if len(p) == 2 and p[0] == "reports" and m in ("PUT", "DELETE"):
             if not DATE_RE.match(p[1]):
                 raise ApiError(400, "날짜 형식이 맞지 않습니다.")
@@ -389,23 +390,26 @@ class Handler(BaseHTTPRequestHandler):
                 st.delete_report(p[1])
             return self.send_json({"ok": True, "rev": st.rev})
 
-        # GET /api/users : 사용자 목록(관리자만)
+        # GET /api/users : 사용자 목록(운영자만)
         if p == ["users"] and m == "GET":
             self.need_user(admin=True)
             return self.send_json({"users": [st.public_user(i) for i in sorted(st.users)]})
 
-        # POST /api/users : 새 사번 등록(관리자만). 이미 있는 사번이면 거절
+        # POST /api/users : 새 사번 등록(운영자만). 이미 있는 사번이면 거절
         if p == ["users"] and m == "POST":
             self.need_user(admin=True)
             b = self.body()
             uid = self.clean_id(b.get("id"))
             if uid in st.users:
                 raise ApiError(409, "이미 등록된 사번입니다.")
-            st.set_user(uid, self.clean_name(b.get("name")), self.clean_pw(b.get("password")), self.clean_role(b.get("role")))
+            role, crew = self.clean_role(b.get("role")), self.clean_crew(b.get("crew", ""))
+            if role == "user" and not crew:  # 현장관리자는 소속 조가 있어야 본인 조의 불량 유형을 볼 수 있다
+                raise ApiError(400, "현장관리자는 소속 조를 선택해야 합니다.")
+            st.set_user(uid, self.clean_name(b.get("name")), self.clean_pw(b.get("password")), role, crew)
             return self.send_json({"ok": True})
 
-        # POST /api/users/사번 : 이름, 권한, 사용 여부, 비밀번호 바꾸기,  DELETE /api/users/사번 : 사용자 삭제 (둘 다 관리자만)
-        # 본인 삭제와 마지막 관리자를 없애는 변경은 막습니다.
+        # POST /api/users/사번 : 이름, 권한, 사용 여부, 비밀번호 바꾸기,  DELETE /api/users/사번 : 사용자 삭제 (둘 다 운영자만)
+        # 본인 삭제와 마지막 운영자를 없애는 변경은 막습니다.
         if len(p) == 2 and p[0] == "users" and m in ("POST", "DELETE"):
             me = self.need_user(admin=True)
             uid = p[1]
@@ -415,7 +419,7 @@ class Handler(BaseHTTPRequestHandler):
                 if uid == me["id"]:
                     raise ApiError(400, "본인 계정은 삭제할 수 없습니다.")
                 if not st.active_admins(without=uid):
-                    raise ApiError(400, "관리자가 한 명은 남아 있어야 합니다.")
+                    raise ApiError(400, "운영자가 한 명은 남아 있어야 합니다.")
                 del st.users[uid]
                 st._save_users()
                 st.drop_sessions(uid)
@@ -424,11 +428,13 @@ class Handler(BaseHTTPRequestHandler):
             u = st.users[uid]
             if "name" in b:
                 u["name"] = self.clean_name(b["name"])
+            if "crew" in b:
+                u["crew"] = self.clean_crew(b["crew"])
             if "role" in b or "active" in b:
                 role = self.clean_role(b.get("role", u["role"]))
                 active = bool(b.get("active", u.get("active", True)))
                 if (role != "admin" or not active) and not st.active_admins(without=uid):
-                    raise ApiError(400, "관리자가 한 명은 남아 있어야 합니다.")
+                    raise ApiError(400, "운영자가 한 명은 남아 있어야 합니다.")
                 u["role"], u["active"] = role, active
                 if not active:
                     st.drop_sessions(uid)
@@ -472,8 +478,16 @@ class Handler(BaseHTTPRequestHandler):
 
     @staticmethod
     def clean_role(v):
-        if v not in ("admin", "user"):
+        if v not in ("admin", "manager", "user"):
             raise ApiError(400, "권한 값이 맞지 않습니다.")
+        return v
+
+    @staticmethod
+    def clean_crew(v):
+        # 소속 조는 A, B, C 또는 빈 값(없음)만 받는다
+        v = str(v or "").strip().upper()
+        if v not in ("", "A", "B", "C"):
+            raise ApiError(400, "소속 조는 A, B, C 중에서 선택하세요.")
         return v
 
 

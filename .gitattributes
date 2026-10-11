@@ -1,0 +1,2 @@
+# 배치 파일은 Windows 줄바꿈(CRLF)을 유지해야 실행됩니다
+*.bat eol=crlf

@@ -8,7 +8,7 @@
 <!-- 이 파일은 직접 더블클릭해서 열면 저장이 안 됩니다. server.py 가 사내망에 내보내 줍니다. -->
 <!-- ================================================================== -->
 <style>
-/* Layout: 분석 = filter row, KPI strip, chart grid, daily table. 일보 입력 = 엑셀 작업일보 양식을 따른 한 장의 시트(제목·결재란, 번호가 붙은 항목 띠, 격자 표)와 하단 고정 합계 바. */
+/* Layout: 분석 = filter row, KPI strip, chart grid, daily table. 일보 등록 = 엑셀 작업일보 양식을 따른 한 장의 시트(제목·결재란, 번호가 붙은 항목 띠, 격자 표)와 하단 고정 합계 바. */
 /* [글꼴] 세방고딕 글꼴을 불러옵니다. PC에 설치되어 있으면 그것을 쓰고, 없으면 fonts 폴더의 파일을 씁니다. 400=보통 굵기, 700=굵게 */
 @font-face{font-family:"SebangGothicWeb";font-weight:400;font-display:swap;src:local("세방고딕"),local("SEBANG Gothic"),url("fonts/SebangGothic.otf") format("opentype")}
 @font-face{font-family:"SebangGothicWeb";font-weight:700;font-display:swap;src:local("세방고딕 Bold"),local("SEBANG Gothic Bold"),url("fonts/SebangGothic-Bold.otf") format("opentype")}
@@ -47,7 +47,7 @@ h1{font-size:22px;font-weight:700;margin:0}
 h1 small{font-size:13px;font-weight:400;color:var(--ink2);margin-left:8px}
 h2{font-size:15px;font-weight:700;margin:0;text-wrap:balance}
 h3{font-size:13px;font-weight:700;margin:0;color:var(--ink2)}
-/* [탭 버튼] 오른쪽 위의 "분석 / 일보 입력 / 사용자 관리" 버튼 모양입니다. */
+/* [탭 버튼] 오른쪽 위의 "분석 / 일보 등록 / 사용자 관리" 버튼 모양입니다. */
 .tabs{display:flex;gap:4px}
 .tabs button{font:inherit;font-weight:700;border:1px solid transparent;background:none;color:var(--ink2);padding:6px 14px;border-radius:999px;cursor:pointer}
 .tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
@@ -157,7 +157,7 @@ tfoot td{font-weight:700;border-bottom:none;border-top:1px solid var(--axis)}
 textarea{width:100%;min-height:96px;resize:vertical;border-radius:0}
 .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
 .two>div{display:flex;flex-direction:column;gap:6px;min-width:0}
-/* [하단 고정 바] 일보 입력 화면 맨 아래에 항상 떠 있는 "생산량 / 달성률 / 저장" 막대입니다. */
+/* [하단 고정 바] 일보 등록 화면 맨 아래에 항상 떠 있는 "생산량 / 달성률 / 저장" 막대입니다. */
 .bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--axis);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));z-index:10}
 .bar>div{max-width:1148px;margin:0 auto;display:flex;flex-wrap:wrap;gap:6px 20px;align-items:center}
 .bar .m{font-size:12px;color:var(--ink2)} .bar .m b{font-size:15px;color:var(--ink);margin-left:4px;font-variant-numeric:tabular-nums}
@@ -216,10 +216,10 @@ var s=document.createElement('script');s.src='vendor/xlsx.full.min.js';s.onload=
     <h1>2T4P 작업일보<small>생산 · 불량 · 인원 분석</small></h1>
     <!-- 로그인한 사람의 이름/사번과 "비밀번호 변경", "로그아웃" 버튼 (사내망 서버로 접속했을 때만 보임) -->
     <div class="who" id="who" hidden><span id="who-name"></span><button type="button" class="btn sm" id="pw-open">비밀번호 변경</button><button type="button" class="btn sm" id="logout">로그아웃</button></div>
-    <!-- 탭 버튼 3개. "사용자 관리"는 관리자로 로그인했을 때만 보입니다. -->
+    <!-- 탭 버튼 3개. "사용자 관리"는 운영자로 로그인했을 때만 보입니다. -->
     <nav class="tabs" role="tablist" id="tabs">
       <button type="button" role="tab" id="tab-dash" aria-selected="true">분석</button>
-      <button type="button" role="tab" id="tab-input" aria-selected="false">일보 입력</button>
+      <button type="button" role="tab" id="tab-input" aria-selected="false">일보 등록</button>
       <button type="button" role="tab" id="tab-users" aria-selected="false" hidden>사용자 관리</button>
     </nav>
   </header>
@@ -231,7 +231,7 @@ var s=document.createElement('script');s.src='vendor/xlsx.full.min.js';s.onload=
     <div class="filters"><input type="password" id="pw-old" placeholder="현재 비밀번호" aria-label="현재 비밀번호" required><input type="password" id="pw-new" placeholder="새 비밀번호 (6자 이상)" aria-label="새 비밀번호" required><input type="password" id="pw-new2" placeholder="새 비밀번호 확인" aria-label="새 비밀번호 확인" required><button class="btn primary">변경</button><button type="button" class="btn" id="pw-cancel">취소</button><span id="pw-msg" class="cap"></span></div>
   </form>
 
-  <!-- [로그인 화면] 처음 실행 때는 "관리자 계정 만들기" 화면으로 바뀝니다(이름, 비밀번호 확인 칸이 추가로 보임). -->
+  <!-- [로그인 화면] 처음 실행 때는 "운영자 계정 만들기" 화면으로 바뀝니다(이름, 비밀번호 확인 칸이 추가로 보임). -->
   <main id="view-auth" hidden>
     <form class="panel auth" id="auth-form">
       <h2 id="auth-title">로그인</h2>
@@ -245,15 +245,15 @@ var s=document.createElement('script');s.src='vendor/xlsx.full.min.js';s.onload=
     </form>
   </main>
 
-  <!-- [사용자 관리 탭] 관리자만 볼 수 있습니다. 위는 사번 등록, 아래는 등록된 사용자 목록입니다. -->
+  <!-- [사용자 관리 탭] 운영자만 볼 수 있습니다. 위는 사번 등록, 아래는 등록된 사용자 목록입니다. -->
   <main id="view-users" hidden>
     <div style="display:flex;flex-direction:column;gap:16px">
       <section class="panel">
-        <div class="hd"><h2>사용자 등록</h2><span class="cap">등록한 사번과 초기 비밀번호를 현장관리자에게 알려주세요. 본인이 로그인한 뒤 비밀번호를 바꿀 수 있습니다.</span></div>
-        <form class="filters" id="u-add" autocomplete="off"><input id="u-id" placeholder="사번" aria-label="사번" required><input id="u-name" placeholder="이름" aria-label="이름" required><input id="u-pw" placeholder="초기 비밀번호 (6자 이상)" aria-label="초기 비밀번호" required><select id="u-role" aria-label="권한"><option value="user">현장관리자</option><option value="admin">관리자</option></select><button class="btn primary">등록</button><span id="u-msg" class="cap"></span></form>
+        <div class="hd"><h2>사용자 등록</h2><span class="cap">현장관리자는 소속 조를 꼭 선택하세요. 등록한 사번과 초기 비밀번호를 본인에게 알려주세요. 본인이 로그인한 뒤 비밀번호를 바꿀 수 있습니다.</span></div>
+        <form class="filters" id="u-add" autocomplete="off"><input id="u-id" placeholder="사번" aria-label="사번" required><input id="u-name" placeholder="이름" aria-label="이름" required><input id="u-pw" placeholder="초기 비밀번호 (6자 이상)" aria-label="초기 비밀번호" required><select id="u-role" aria-label="권한"><option value="user">현장관리자</option><option value="manager">관리자</option><option value="admin">운영자</option></select><select id="u-crew" aria-label="소속 조"><option value="">소속 조 선택</option><option value="A">A조</option><option value="B">B조</option><option value="C">C조</option></select><button class="btn primary">등록</button><span id="u-msg" class="cap"></span></form>
       </section>
       <section class="panel">
-        <div class="hd"><h2>사용자 목록</h2><span class="cap">현장관리자: 일보 작성·수정 · 관리자: 일보 삭제와 사용자 관리까지</span></div>
+        <div class="hd"><h2>사용자 목록</h2><span class="cap">현장관리자: 일보 작성, 공개 분석과 본인 조의 불량 유형 열람 · 관리자: + 비공개 분석(조별 생산량) 열람 · 운영자: + 일보 삭제, 사용자 관리</span></div>
         <div class="scroll"><table id="u-tbl"></table></div>
       </section>
     </div>
@@ -279,11 +279,18 @@ var s=document.createElement('script');s.src='vendor/xlsx.full.min.js';s.onload=
           <div class="chart" id="c-prod"></div>
         </section>
         <div class="grid2">
-          <section class="panel"><div class="hd"><h2>완성 불량률 추이</h2><span class="cap">PPM · 조립 불량(단락·저전류·기타(조립)) 제외 · 휴무일은 0</span></div><div class="chart" id="c-rate"></div></section>
+          <section class="panel"><div class="hd"><h2>불량률 추이</h2><span class="cap">PPM · 완성+충전 불량 ÷ 생산량 · 조립 불량(단락·저전류·기타(조립)) 제외 · 휴무일은 0</span></div><div class="chart" id="c-rate"></div></section>
           <section class="panel"><div class="hd"><h2>인시당 생산량 추이</h2><span class="cap">생산량 ÷ 완성 작업시간, EA/인시</span></div><div class="chart" id="c-uph"></div></section>
           <section class="panel"><div class="hd"><h2>라인별 실적</h2><span class="cap">생산량 · 가동 시간당 생산량</span></div><h3>생산량 (EA)</h3><div class="hb" id="c-line"></div><h3>시간당 생산량 (EA/h)</h3><div class="hb" id="c-lineh"></div></section>
-          <section class="panel"><div class="hd"><h2>조별 실적</h2><span class="cap">생산량 · 가동 시간당 생산량</span></div><h3>생산량 (EA)</h3><div class="hb" id="c-crew"></div><h3>시간당 생산량 (EA/h)</h3><div class="hb" id="c-crewh"></div></section>
-          <section class="panel"><div class="hd"><h2>불량 유형</h2><span class="cap">완성 · 충전 합산, EA · (조립)은 PPM 계산에서 제외</span></div><div class="hb" id="c-def"></div></section>
+          <!-- 비공개 자료: 현장관리자에게는 숨깁니다 (조끼리 생산량 경쟁을 막기 위해). 숨김 처리는 renderDash 에서 합니다 -->
+          <section class="panel" id="p-crew"><div class="hd"><h2>조별 생산량 <span class="badge">비공개</span></h2><span class="cap">생산량 · 가동 시간당 생산량 · 관리자와 운영자만 볼 수 있습니다</span></div><h3>생산량 (EA)</h3><div class="hb" id="c-crew"></div><h3>시간당 생산량 (EA/h)</h3><div class="hb" id="c-crewh"></div></section>
+          <section class="panel"><div class="hd"><h2>조별 불량률</h2><span class="cap">PPM · 완성+충전 불량, 조립 불량 제외 · 근무조를 입력한 일보만 집계</span></div><div class="hb" id="c-crewdef"></div></section>
+          <section class="panel"><div class="hd"><h2>주간/야간 불량률</h2><span class="cap">PPM · 완성+충전 불량, 조립 불량 제외 · 그 시간대 근무조의 생산량 기준</span></div><div class="hb" id="c-shiftdef"></div></section>
+          <section class="panel"><div class="hd"><h2>불량 유형(전체)</h2><span class="cap">완성 · 충전 합산, EA · (조립)은 PPM 계산에서 제외</span></div><div class="hb" id="c-def"></div></section>
+          <!-- 조별 불량 유형: 현장관리자는 본인 조의 것만, 관리자와 운영자는 세 조 모두 봅니다. 숨김 처리는 renderDash 에서 합니다 -->
+          <section class="panel" id="p-ct-A" hidden><div class="hd"><h2>불량 유형(A조)</h2><span class="cap">A조가 근무한 주간/야간의 완성 · 충전 불량, EA</span></div><div class="hb" id="c-ct-A"></div></section>
+          <section class="panel" id="p-ct-B" hidden><div class="hd"><h2>불량 유형(B조)</h2><span class="cap">B조가 근무한 주간/야간의 완성 · 충전 불량, EA</span></div><div class="hb" id="c-ct-B"></div></section>
+          <section class="panel" id="p-ct-C" hidden><div class="hd"><h2>불량 유형(C조)</h2><span class="cap">C조가 근무한 주간/야간의 완성 · 충전 불량, EA</span></div><div class="hb" id="c-ct-C"></div></section>
           <section class="panel"><div class="hd"><h2>손실 시간</h2><span class="cap">분 (인원 부동은 인원×분)</span></div><div class="hb" id="c-loss"></div></section>
         </div>
         <section class="panel">
@@ -294,7 +301,7 @@ var s=document.createElement('script');s.src='vendor/xlsx.full.min.js';s.onload=
     </div>
   </main>
 
-  <!-- [일보 입력 탭] 엑셀 불러오기 버튼 + 일보 시트 + 하단 고정 바. -->
+  <!-- [일보 등록 탭] 엑셀 불러오기 버튼 + 일보 시트 + 하단 고정 바. -->
   <!-- 일보 시트(id="form")의 내용은 자바스크립트의 renderForm 함수가 만들어 넣습니다. -->
   <main id="view-input" hidden>
     <div style="display:flex;flex-direction:column;gap:12px">
@@ -315,6 +322,7 @@ var s=document.createElement('script');s.src='vendor/xlsx.full.min.js';s.onload=
       <span class="m">인시당<b id="o-uph">–</b></span>
       <span class="spacer"></span>
       <span id="status"></span>
+      <button type="button" class="btn" id="save-draft">임시저장</button>
       <button type="button" class="btn primary" id="save">저장</button>
     </div></div>
   </main>
@@ -374,9 +382,17 @@ const state={reports:new Map(),loaded:false,db:null,downloads:null,readOnly:fals
 // form = 지금 입력 화면에 열려 있는 일보 한 건, formExisting = 이미 저장된 일보를 수정 중인지, dirty = 저장하지 않은 변경이 있는지
 let form=null, formExisting=false, dirty=false;
 const srv={on:false,user:null}; /* 사내망 서버 모드 (server.py). 꺼져 있으면 Claude 아티팩트 저장소를 쓴다 */
-// canDel = 지금 사용자가 일보를 삭제할 수 있는지(사내망에서는 관리자만), writer = 그 날짜 일보를 마지막에 저장한 사람 이름
+// canDel = 지금 사용자가 일보를 삭제할 수 있는지(사내망에서는 운영자만), writer = 그 날짜 일보를 마지막에 저장한 사람 이름
+// autoSign = 현장관리자로 로그인했고 결재란 "작성" 칸이 비어 있으면 본인 이름을 넣는다
+const autoSign=f=>{if(srv.user&&srv.user.role==='user'&&!f.sign.w)f.sign.w=srv.user.name};
+// 권한 이름표. 저장되는 값(user/manager/admin)과 화면에 보이는 이름. 예전 '관리자(admin)' 계정은 그대로 '운영자'가 된다
+const ROLE={user:'현장관리자',manager:'관리자',admin:'운영자'};
+// canPrivate = 비공개 분석 자료(조별 생산량)를 볼 수 있는지. 사내망에서는 관리자와 운영자만. Claude 페이지에는 권한 구분이 없어 항상 보인다
+const canPrivate=()=>!srv.on||(!!srv.user&&srv.user.role!=='user');
+// canSeeCrew(조) = 그 조의 불량 유형 자료를 볼 수 있는지. 관리자·운영자는 전부, 현장관리자는 본인 조(user.crew)만
+const canSeeCrew=k=>canPrivate()||(!!srv.user&&srv.user.crew===k);
 const canDel=()=>srv.on?!!srv.user&&srv.user.role==='admin':!state.readOnly;
-const writer=d=>{const u=(state.reports.get(d)||{}).updatedBy;return u&&u.name?u.name:'–'};
+const writer=d=>{const r=state.reports.get(d)||{},u=r.updatedBy;return (u&&u.name?u.name:'–')+(r.draft===true?' · 임시저장':'')};
 
 /* ---------- data model ---------- */
 // blank(날짜) = 모든 칸이 비어 있는 새 일보 한 건을 만듭니다. 일보에 어떤 항목이 들어가는지는 이 함수를 보면 됩니다.
@@ -384,7 +400,7 @@ const writer=d=>{const u=(state.reports.get(d)||{}).updatedBy;return u&&u.name?u
 //   idle=인원 부동/파견 목록, equip=설비부동 목록, def=불량(asm 완성, chg 충전), chg=충전 실적,
 //   cover=카바 불량/등록, sign=결재란, lead=파트장 작성 특이사항, noteD/noteN=주간/야간 특이사항
 function blank(date){
-  const r={date,plan:0,att:{},prod:{},line:{},idle:[],equip:[],def:{asm:{},chg:{}},chg:{},cover:{badD:0,regD:0,badN:0,regN:0},sign:{w:'',r:'',a:''},lead:{prod:'',people:'',etc:''},sdNote:'',noteD:'',noteN:''};
+  const r={date,plan:0,att:{},prod:{},line:{},idle:[],equip:[],def:{asm:{},chg:{}},chg:{},draft:false,shift:{D:'',N:''},cover:{badD:0,regD:0,accD:0,badN:0,regN:0,accN:0},sign:{w:'',r:'',a:''},lead:{prod:'',people:'',etc:''},sdNote:'',noteD:'',noteN:''};
   ATT.forEach(([k])=>r.att[k]={reg:0,hrs:DEF_HRS,absent:0,early:0,vac:0,late:0,ot:0});
   CREWS.forEach(c=>{r.prod[c]={};LINES.forEach(l=>r.prod[c][l]={h:DEF_RUN,q:0})});
   LINES.forEach(l=>r.line[l]={mcD:0,mmD:0,mcN:0,mmN:0,sdD:0,sdN:0});
@@ -401,7 +417,7 @@ function merge(base,src){
     if(s===undefined||s===null)continue;
     if(Array.isArray(b))base[k]=Array.isArray(s)?s.map(x=>({...x})):b;
     else if(typeof b==='object')merge(b,s);
-    else base[k]=typeof b==='number'?n(s):String(s);
+    else base[k]=typeof b==='number'?n(s):typeof b==='boolean'?s===true:String(s);
   }
   return base;
 }
@@ -413,7 +429,7 @@ const attHours=a=>n(a.reg)*n(a.hrs)-n(a.absent)-n(a.early)-n(a.vac)-n(a.late)+n(
 // ★ calc(일보) = 일보 한 건에서 분석에 필요한 숫자를 모두 계산합니다. 분석 탭과 입력 화면 합계가 모두 이 함수 결과를 씁니다.
 //   total=생산량 합계, byLine/byCrew=라인별/조별 생산량, hLine/hCrew=가동시간(생산량이 있는 칸만),
 //   mhAsm/mhChg=완성/충전 작업시간, defAsm=완성 불량 전체, defAssy=그중 조립 공정 불량(단락, 저전류, 기타(조립)),
-//   defQ=불량률 계산에 쓰는 불량(defAsm − defAssy), defChg=충전 불량,
+//   defQ=불량률 계산에 쓰는 불량(defAsm − defAssy + defChg), defChg=충전 불량,
 //   moldCnt/moldMin=금형교체 횟수/분, supply=공급지연 분, equip=설비부동 분, idle=인원 부동(인원×분), charge=충전 수량,
 //   rate=불량률(defQ ÷ 생산량, 생산이 없으면 0), uph=인시당 생산량(생산량 ÷ 완성 작업시간), ach=달성률(생산량 ÷ 계획)
 function calc(r){
@@ -425,7 +441,11 @@ function calc(r){
   c.headAsm=n(r.att.asmD.reg)+n(r.att.asmI.reg); c.headChg=n(r.att.chgD.reg)+n(r.att.chgI.reg);
   c.ot=ATT.reduce((s,[k])=>s+n(r.att[k].ot),0);
   for(const a in DEF)DEF[a].forEach(([k,label,assy])=>{const v=n(r.def[a][k].d)+n(r.def[a][k].n);const key=(a==='chg'?'충전 ':'')+label+(assy&&k!=='etcA'?'(조립)':'');c.def[key]=v;if(a==='asm'){c.defAsm+=v;if(assy)c.defAssy+=v}else c.defChg+=v});
-  c.defQ=c.defAsm-c.defAssy; /* 불량률 대상 = 완성 불량 − 조립 공정 불량 */
+  /* 조별 불량: shift.D(주간 근무조), shift.N(야간 근무조)에 적힌 조에게 그 시간대의 불량(조립 불량 제외)을 배정한다 */
+  c.crewDef={};CREWS.forEach(k=>c.crewDef[k]={def:0,q:0,days:0,types:{}}); /* types = 그 조가 근무한 시간대의 불량을 유형별로 모은 것 */
+  c.shiftDef={D:{def:0,q:0,days:0},N:{def:0,q:0,days:0}}; /* 주간/야간 불량률용: 그 시간대 불량과 그 시간대에 일한 조의 생산량 */
+  [['D','d'],['N','n']].forEach(([sh,f])=>{const k=r.shift[sh],x=c.crewDef[k];if(!x)return;const dd=DEF.asm.reduce((t,[key,,assy])=>t+(assy?0:n(r.def.asm[key][f])),0)+DEF.chg.reduce((t,[key])=>t+n(r.def.chg[key][f]),0);x.def+=dd;if(!x.days){x.days=1;x.q+=c.byCrew[k]}DEF.asm.forEach(([key,label,assy])=>{const lb=label+(assy&&key!=='etcA'?'(조립)':'');x.types[lb]=(x.types[lb]||0)+n(r.def.asm[key][f])});DEF.chg.forEach(([key,label])=>{const lb='충전 '+label;x.types[lb]=(x.types[lb]||0)+n(r.def.chg[key][f])}); /* 충전 불량도 그 시간대 근무조의 불량 유형에 넣는다 */ c.shiftDef[sh]={def:dd,q:c.byCrew[k],days:1}});
+  c.defQ=c.defAsm-c.defAssy+c.defChg; /* 불량률 대상 = 완성 불량 − 조립 공정 불량 + 충전 불량 */
   c.moldCnt=0;c.moldMin=0;c.supply=0;
   LINES.forEach(l=>{const x=r.line[l];c.moldCnt+=n(x.mcD)+n(x.mcN);c.moldMin+=n(x.mmD)+n(x.mmN);c.supply+=n(x.sdD)+n(x.sdN)});
   c.eq={asm:{D:0,N:0},chg:{D:0,N:0}};
@@ -477,7 +497,7 @@ function lineChart(el,days,vals,fmt,color,unit){
   vals.forEach((v,i)=>{if(!isFinite(v)){pen=false;return}p+=(pen?'L':'M')+(f.L+band*(i+.5))+','+f.y(v);pen=true;lastI=i});
   s+=`<path d="${p}" fill="none" style="stroke:var(${color})" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
   const rr=days.length>20?0:4;
-  vals.forEach((v,i)=>{if(!isFinite(v))return;const r=i===lastI?4.5:rr;if(r)s+=`<circle cx="${f.L+band*(i+.5)}" cy="${f.y(v)}" r="${r}" style="fill:var(${color});stroke:var(--surface)" stroke-width="2"/>`;
+  vals.forEach((v,i)=>{if(!isFinite(v))return;const lone=!isFinite(vals[i-1])&&!isFinite(vals[i+1]);const r=i===lastI?4.5:lone?4:rr; /* 앞뒤 값이 비어 선으로 이어지지 않는 날은 점으로 표시 */if(r)s+=`<circle cx="${f.L+band*(i+.5)}" cy="${f.y(v)}" r="${r}" style="fill:var(${color});stroke:var(--surface)" stroke-width="2"/>`;
     s+=`<rect class="hit" x="${f.L+band*i}" y="${f.T}" width="${band}" height="${f.ih}" data-tip="${esc(days[i]+'\n'+fmt(v)+(unit||''))}"/>`});
   const lx=f.L+band*(lastI+.5),anchor=lx>f.W-70?'end':lx<f.L+40?'start':'middle';
   s+=`<text class="dl" x="${anchor==='end'?lx-8:anchor==='start'?lx+8:lx}" y="${f.y(vals[lastI])-9}" text-anchor="${anchor}">${esc(fmt(vals[lastI]))}</text>`;
@@ -489,6 +509,10 @@ function hbars(el,rows,fmt,unit){
   if(!rows.length||!(max>0)){el.innerHTML='<div class="empty" style="grid-column:1/-1">기록된 값이 없습니다</div>';return}
   el.innerHTML=rows.map(r=>{const v=isFinite(r.value)?r.value:0;return `<div class="row" ><span>${esc(r.label)}</span><span class="tr" data-tip="${esc(r.label+'\n'+fmt(v)+(unit||'')+(r.sub?'\n'+r.sub:''))}"><b style="width:${(v/max*100).toFixed(1)}%;background:var(${r.color||'--s1'})"></b></span><span class="n">${esc(isFinite(r.value)?fmt(v):'–')}${r.sub?' <span style="color:var(--muted)">'+esc(r.sub)+'</span>':''}</span></div>`}).join('');
 }
+
+// 그래프 하나를 그리다 문제가 생겨도 나머지 화면은 계속 나오게 한다 (그 그래프 자리에만 안내 문구 표시)
+const safeDraw=fn=>function(el){try{return fn.apply(null,arguments)}catch(e){el.innerHTML='<div class="empty" style="grid-column:1/-1">이 그래프를 그리지 못했습니다</div>'}};
+stackChart=safeDraw(stackChart);lineChart=safeDraw(lineChart);hbars=safeDraw(hbars);
 
 /* ---------- dashboard ---------- */
 // [5. 분석 탭]
@@ -509,18 +533,19 @@ function renderDash(){
   const sel=$('period');
   sel.innerHTML='<option value="all">전체 기간</option>'+years.slice().reverse().map(y=>`<option value="${y}">${y}년 전체</option>`+months.filter(m=>m.startsWith(y)).reverse().map(m=>`<option value="${m}">${y}년 ${+m.slice(5)}월</option>`).join('')).join('');
   sel.value=state.period||'all';
-  $('period-info').textContent=rs.length?`일보 ${rs.length}건 · ${rs[0].date} ~ ${rs[rs.length-1].date}`:'';
+  const nDraft=rs.filter(r=>r.draft).length;
+  $('period-info').textContent=rs.length?`일보 ${rs.length}건${nDraft?` (임시저장 ${nDraft}건 포함)`:''} · ${rs[0].date} ~ ${rs[rs.length-1].date}`:'';
   const has=rs.length>0;
   $('dash-empty').hidden=has; $('dash-body').hidden=!has; $('csv').hidden=!has||!state.downloads;
-  if(!has){$('dash-empty-msg').textContent=state.loaded?'아직 등록된 일보가 없습니다. ‘일보 입력’ 탭에서 첫 일보를 저장하면 여기에 분석이 표시됩니다.':'일보를 불러오는 중입니다…';return}
-  const cs=rs.map(calc),days=cs.map(c=>c.date);
+  if(!has){$('dash-empty-msg').textContent=state.loaded?'아직 등록된 일보가 없습니다. ‘일보 등록’ 탭에서 첫 일보를 저장하면 여기에 분석이 표시됩니다.':'일보를 불러오는 중입니다…';return}
+  const cs=rs.map(r=>{try{return calc(r)}catch(e){return calc(blank(r.date))}}),days=cs.map(c=>c.date); /* 계산할 수 없는 일보는 빈 일보(전부 0)로 본다 */
   const S=k=>cs.reduce((s,c)=>s+n(c[k]),0);
   const total=S('total'),plan=S('plan'),defAsm=S('defAsm'),defQ=S('defQ'),defAssy=S('defAssy'),defChg=S('defChg'),mh=S('mhAsm'),charge=S('charge');
   const equip=S('equip'),mold=S('moldMin'),supply=S('supply'),idle=S('idle'),moldCnt=S('moldCnt');
   const gap=total-plan;
   $('kpis').innerHTML=[
     ['생산량',f0(total),'EA',plan?`계획 ${f0(plan)} · 달성률 ${pct(total/plan)} <span class="${gap>=0?'up':'down'}">${gap>=0?'▲ +':'▼ '}${f0(gap)}</span>`:'계획 수량 미입력'],
-    ['완성 불량률',f0(total?defQ/total*1e6:0),'PPM',`불량 ${f0(defQ)} EA ÷ 생산량 · 조립 불량 ${f0(defAssy)} EA 제외`],
+    ['불량률',f0(total?defQ/total*1e6:0),'PPM',`불량 ${f0(defQ)} EA(충전 ${f0(defChg)} 포함) ÷ 생산량 · 조립 불량 ${f0(defAssy)} EA 제외`],
     ['인시당 생산량',mh>0?f1(total/mh):'–','EA/인시',`완성 작업시간 ${f1(mh)} h · 일평균 재적 ${f1(S('headAsm')/cs.length)}명`],
     ['손실 시간',f0(equip+mold+supply),'분',`설비부동 ${f0(equip)} · 금형교체 ${f0(mold)} · 공급지연 ${f0(supply)}`],
     ['충전 수량',f0(charge),'EA',`충전 불량 ${f0(defChg)} EA${charge?' · '+f0(defChg/charge*1e6)+' ppm':''}`]
@@ -541,7 +566,7 @@ function renderDash(){
   if(defRows.length)ins.push(`불량 ${f0(defAll)} EA 중 가장 많은 유형은 ‘${defRows[0][0]}’ ${f0(defRows[0][1])} EA(${pct(defRows[0][1]/defAll,0)})입니다.`+(defRows[1]?` 다음은 ‘${defRows[1][0]}’ ${f0(defRows[1][1])} EA.`:''));
   const lossTop=loss.slice(0,3).sort((a,b)=>b[1]-a[1])[0];
   if(lossTop[1]>0)ins.push(`손실 시간 ${f0(equip+mold+supply)}분 중 가장 큰 항목은 ${lossTop[0]} ${f0(lossTop[1])}분(${pct(lossTop[1]/(equip+mold+supply),0)})입니다.`+(moldCnt?` 금형교체는 ${moldCnt}회, 회당 평균 ${f1(mold/moldCnt)}분.`:''));
-  if(cs.length>1){const rr=cs.filter(c=>c.total>0);if(rr.length>1){const w=rr.slice().sort((a,b)=>b.rate-a.rate)[0];ins.push(`불량률이 가장 높았던 날은 ${w.date} (${f0(w.rate*1e6)} PPM, ${f0(w.defQ)} EA).`)}}
+  if(cs.length>1){const rr=cs.filter(c=>c.total>0);if(rr.length>1){const w=rr.slice().sort((a,b)=>b.rate-a.rate)[0];if(w.rate>0)ins.push(`불량률이 가장 높았던 날은 ${w.date} (${f0(w.rate*1e6)} PPM, ${f0(w.defQ)} EA).`)}}
   const ot=S('ot');if(ot>0)ins.push(`연장근로는 총 ${f1(ot)}시간으로 작업시간(완성+충전 ${f1(mh+S('mhChg'))}h)의 ${pct(ot/(mh+S('mhChg')),0)}입니다.`);
   $('insight').innerHTML=ins.map(t=>`<li>${esc(t)}</li>`).join('')||'<li>분석할 값이 아직 부족합니다.</li>';
 
@@ -553,9 +578,26 @@ function renderDash(){
   lineChart($('c-uph'),days,cs.map(c=>c.uph),v=>f1(v),'--s1',' EA/인시');
   hbars($('c-line'),LINES.map(l=>({label:l+' LINE',value:byLine[l],color:LINE_COLOR[l],sub:total?pct(byLine[l]/total,0):''})),f0,' EA');
   hbars($('c-lineh'),LINES.map(l=>({label:l+' LINE',value:hLine[l]?byLine[l]/hLine[l]:NaN,color:LINE_COLOR[l],sub:f0(hLine[l])+'h'})),f1,' EA/h');
+  $('p-crew').hidden=!canPrivate(); /* 조별 생산량은 비공개 자료 */
+  if(canPrivate()){
   hbars($('c-crew'),CREWS.map(k=>({label:k+'조',value:byCrew[k],color:CREW_COLOR[k],sub:total?pct(byCrew[k]/total,0):''})),f0,' EA');
   hbars($('c-crewh'),CREWS.map(k=>({label:k+'조',value:hCrew[k]?byCrew[k]/hCrew[k]:NaN,color:CREW_COLOR[k],sub:f0(hCrew[k])+'h'})),f1,' EA/h');
+  }else{$('c-crew').innerHTML='';$('c-crewh').innerHTML=''}
+  /* 조별 불량률(공개): 그 조가 근무한 주간/야간의 불량 ÷ 그 조의 생산량. 생산량 자체는 보여 주지 않고 PPM 과 집계 일수만 보여 준다 */
+  const cd=CREWS.map(k=>{const d=cs.reduce((t,c)=>t+c.crewDef[k].def,0),q=cs.reduce((t,c)=>t+c.crewDef[k].q,0),dn=cs.reduce((t,c)=>t+c.crewDef[k].days,0);return {label:k+'조',value:q>0?d/q*1e6:NaN,color:CREW_COLOR[k],sub:dn?dn+'일 집계':'근무조 미입력'}});
+  if(cd.some(x=>isFinite(x.value)&&x.value>0))hbars($('c-crewdef'),cd,f0,' PPM');
+  else $('c-crewdef').innerHTML=`<div class="empty" style="grid-column:1/-1">${cd.some(x=>isFinite(x.value))?'집계된 기간에 불량이 없습니다 (0 PPM)':'근무조를 입력한 일보가 없습니다. ‘일보 등록’ 2번 항목에서 주간/야간 근무조를 선택하면 집계됩니다.'}</div>`;
+  /* 주간/야간 불량률(공개): 주간 불량 ÷ 주간 근무조 생산량, 야간 불량 ÷ 야간 근무조 생산량 */
+  const sdv=[['D','주간','--s4'],['N','야간','--s7']].map(([k,l,col])=>{const d=cs.reduce((t,c)=>t+c.shiftDef[k].def,0),q=cs.reduce((t,c)=>t+c.shiftDef[k].q,0),dn=cs.reduce((t,c)=>t+c.shiftDef[k].days,0);return {label:l,value:q>0?d/q*1e6:NaN,color:col,sub:dn?`불량 ${f0(d)} EA · ${dn}일`:'근무조 미입력'}});
+  if(sdv.some(x=>isFinite(x.value)&&x.value>0))hbars($('c-shiftdef'),sdv,f0,' PPM');
+  else $('c-shiftdef').innerHTML=`<div class="empty" style="grid-column:1/-1">${sdv.some(x=>isFinite(x.value))?'집계된 기간에 불량이 없습니다 (0 PPM)':'근무조를 입력한 일보가 없습니다.'}</div>`;
   hbars($('c-def'),defRows.map(([k,v])=>({label:k,value:v,sub:pct(v/defAll,0)})),f0,' EA');
+  /* 조별 불량 유형: 볼 수 있는 조의 패널만 보이게 하고 그린다 (현장관리자 = 본인 조, 관리자·운영자 = 전부) */
+  CREWS.forEach(k=>{const ok=canSeeCrew(k);$('p-ct-'+k).hidden=!ok;if(!ok){$('c-ct-'+k).innerHTML='';return}
+    const t={};cs.forEach(c=>{for(const lb in c.crewDef[k].types)t[lb]=(t[lb]||0)+c.crewDef[k].types[lb]});
+    const rows=Object.entries(t).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]),sum=rows.reduce((a,e)=>a+e[1],0);
+    if(rows.length)hbars($('c-ct-'+k),rows.map(([lb,v])=>({label:lb,value:v,color:CREW_COLOR[k],sub:pct(v/sum,0)})),f0,' EA');
+    else $('c-ct-'+k).innerHTML=`<div class="empty" style="grid-column:1/-1">${cs.some(c=>c.crewDef[k].days)?'이 기간에 기록된 불량이 없습니다':'이 기간에 '+k+'조 근무조가 입력된 일보가 없습니다'}</div>`});
   hbars($('c-loss'),loss.map(([k,v,sub])=>({label:k,value:v,sub:sub||''})),f0,'분');
 
   /* 실적표: 일별 또는 월별 합계. 기간이 한 달이면 일별, 연도·전체면 월별이 기본 */
@@ -577,7 +619,7 @@ function renderDash(){
 }
 
 /* ---------- form (엑셀 작업일보 양식) ---------- */
-// [6. 일보 입력 화면]
+// [6. 일보 등록 화면]
 // 입력 칸마다 "어느 항목인지" 주소가 붙어 있습니다. 예: prod.B.G.q = 생산실적 → B조 → G라인 → 생산량.
 // getP = 주소로 값을 꺼내기, setP = 주소에 값을 넣기, fid = 주소를 화면 이름표(id)로 바꾸기
 const getP=(o,p)=>p.split('.').reduce((a,k)=>a==null?a:a[k],o);
@@ -590,6 +632,14 @@ const cin=p=>`<td class="in">${num(p)}</td>`;
 const ctx=(p,ph,cls)=>`<td class="in">${txt(p,ph,cls)}</td>`;
 const sel=(p,opts)=>{const v=getP(form,p);return `<select id="${fid(p)}" data-path="${p}" data-t="s" aria-label="${p}">${opts.map(([k,l])=>`<option value="${k}"${k===v?' selected':''}>${l}</option>`).join('')}</select>`};
 // AREA = 공정 선택(완성/충전), SHIFT = 주간/야간 선택, tbtn = 설비부동의 "발생/완료 시간" 버튼(누르면 시간 선택창이 열림)
+// 근무표: 3조 2교대, 12일 주기(주간 4일 → 휴무 2일 → 야간 4일 → 휴무 2일). 아래 날짜는 각 조의 "주간 4일"이 시작되는 기준일이다.
+// 근무표가 바뀌면 이 기준일만 고치면 된다 (2026년 1~2월 근무표로 확인한 값)
+const SHIFT_START={A:'2026-01-09',B:'2026-01-13',C:'2026-01-05'};
+// cycleShift(날짜) = 그 날짜의 주간 근무조(D)와 야간 근무조(N)를 근무표 주기로 계산한다
+function cycleShift(date){const out={D:'',N:''},u=d=>Date.UTC(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8,10));for(const k in SHIFT_START){const i=((Math.round((u(date)-u(SHIFT_START[k]))/864e5)%12)+12)%12;if(i<4)out.D=k;else if(i>=6&&i<10)out.N=k}return out}
+// fillShift(일보) = 근무조가 비어 있으면 근무표대로 채운다. 단 그 조의 생산량이 입력된 경우에만 (엑셀 불러오기용)
+function fillShift(r){if(r.shift.D||r.shift.N)return;const c=cycleShift(r.date),q=k=>LINES.reduce((t,l)=>t+n(r.prod[k][l].q),0);r.shift={D:c.D&&q(c.D)>0?c.D:'',N:c.N&&q(c.N)>0?c.N:''}}
+const CREWSEL=[['','선택'],['A','A조'],['B','B조'],['C','C조']]; // 근무조 선택 목록
 const AREA=[['asm','완성'],['chg','충전']], SHIFT=[['D','주간'],['N','야간']];
 const tbtn=(i,f,label)=>{const v=form.equip[i][f];return `<label>${label}<button type="button" class="pick${v?'':' none'}" id="${fid('equip.'+i+'.'+f)}" data-pop="time" data-i="${i}" data-f="${f}">${v?fmt12(v):'시간 선택'}</button></label>`};
 
@@ -614,7 +664,7 @@ function renderForm(){
   sec(1,'근 태 현 황',`<div class="scroll"><table class="frm"><thead><tr><th colspan="2">구분</th>${ATTF.map(f=>`<th>${f[1]}</th>`).join('')}<th>소계</th><th>작업시간</th></tr></thead>
     <tbody>${[['완성','asm',['asmD','asmI']],['충전','chg',['chgD','chgI']]].map(([nm,a,ks])=>ks.map((k,i)=>`<tr>${i===0?`<th rowspan="2">${nm}</th>`:''}<th>${i===0?'직접':'간접'}</th>${ATTF.map(f=>cin(`att.${k}.${f[0]}`)).join('')}<td class="o" id="o-att-${k}"></td>${i===0?`<td class="o" rowspan="2" id="o-mh-${a}"></td>`:''}</tr>`).join('')).join('')}</tbody></table></div>
     <span class="cap">소계 = 재적 × 시간 − 휴직 − 조퇴 − 휴가 − 지각 + 연근 (재적은 명, 나머지는 시간)</span>`)+
-  sec(2,'생 산 실 적',`<div class="scroll"><table class="frm"><thead><tr><th colspan="2">구분</th><th>가동시간</th><th>생산량</th><th>구분</th><th>가동시간</th><th>생산량</th><th>합계</th></tr></thead>
+  sec(2,'생 산 실 적',`<div class="fld"><label>주간 근무조 ${sel('shift.D',CREWSEL)}</label><label>야간 근무조 ${sel('shift.N',CREWSEL)}</label><span class="cap">근무표(12일 주기)대로 자동 선택됩니다. 실제와 다르면 바꾸세요. 조별 · 주간/야간 불량률 집계에 사용합니다</span></div><div class="scroll"><table class="frm"><thead><tr><th colspan="2">구분</th><th>가동시간</th><th>생산량</th><th>구분</th><th>가동시간</th><th>생산량</th><th>합계</th></tr></thead>
     <tbody>${CREWS.map(c=>[['G','I'],['H','J']].map((pair,i)=>`<tr>${i===0?`<th rowspan="2">${c}조</th>`:''}${pair.map(l=>`<th>${l} LINE</th>${cin(`prod.${c}.${l}.h`)}${cin(`prod.${c}.${l}.q`)}`).join('')}${i===0?`<td class="o" rowspan="2" id="o-crew-${c}"></td>`:''}</tr>`).join('')).join('')}</tbody>
     <tfoot><tr><th colspan="7">일 생산량</th><td class="o" id="o-day"></td></tr></tfoot></table></div>
     <div class="scroll"><table class="frm"><thead><tr><th>일 계획 수량</th><th>실적 수량</th><th>달성율</th><th>과부족 수량</th></tr></thead><tbody><tr>${cin('plan')}<td class="o" id="o-s-act"></td><td class="o" id="o-s-ach"></td><td class="o" id="o-s-gap"></td></tr></tbody></table></div>
@@ -628,8 +678,8 @@ function renderForm(){
   sec(6,'불 량 내 역',`${defTable('asm','완성')}${defTable('chg','충전')}<div class="sum" id="o-ppm"></div>`)+
   sec(7,'충 전 실 적',`<div class="scroll"><table class="frm"><thead><tr><th>구분</th><th>충전 수량</th><th>회전룸수</th></tr></thead>
     <tbody>${CHG.map(([k,l])=>`<tr><th>${l}</th>${cin(`chg.${k}.q`)}${cin(`chg.${k}.r`)}</tr>`).join('')}</tbody><tfoot><tr><th>일 충전 수량</th><td class="o" id="o-chg"></td><td class="o" id="o-chgr"></td></tr></tfoot></table></div>`)+
-  sec(8,'기 타 특 이 사 항',`<div class="two"><div><h3>주간</h3><textarea id="f-noteD" data-path="noteD" data-t="s" aria-label="주간 특이사항">${esc(form.noteD)}</textarea><div class="fld"><label>카바 불량 ${num('cover.badD')} EA</label><label>카바 등록 ${num('cover.regD')} EA</label></div></div>
-    <div><h3>야간</h3><textarea id="f-noteN" data-path="noteN" data-t="s" aria-label="야간 특이사항">${esc(form.noteN)}</textarea><div class="fld"><label>카바 불량 ${num('cover.badN')} EA</label><label>카바 등록 ${num('cover.regN')} EA</label></div></div></div>
+  sec(8,'기 타 특 이 사 항',`<div class="two"><div><h3>주간</h3><textarea id="f-noteD" data-path="noteD" data-t="s" aria-label="주간 특이사항">${esc(form.noteD)}</textarea><div class="fld"><label>카바 불량 ${num('cover.badD')} EA</label><label>카바 등록 ${num('cover.regD')} EA</label><label>어큠충만 ${num('cover.accD')} 분</label></div></div>
+    <div><h3>야간</h3><textarea id="f-noteN" data-path="noteN" data-t="s" aria-label="야간 특이사항">${esc(form.noteN)}</textarea><div class="fld"><label>카바 불량 ${num('cover.badN')} EA</label><label>카바 등록 ${num('cover.regN')} EA</label><label>어큠충만 ${num('cover.accN')} 분</label></div></div></div>
     <h3>특이사항 (파트장 작성)</h3>
     <table class="frm full"><tbody>${[['prod','생산이슈'],['people','인원현황'],['etc','특이사항']].map(([k,l])=>`<tr><th style="width:7.5rem">${l}</th><td class="in"><textarea id="f-lead-${k}" data-path="lead.${k}" data-t="s" aria-label="파트장 ${l}">${esc(form.lead[k])}</textarea></td></tr>`).join('')}</tbody></table>`);
   updateOut();
@@ -648,13 +698,13 @@ function updateOut(){
   $('o-idle').innerHTML=`<div><span>인원 부동 · 파견 합계 <small>인원 × 시간(분)</small></span><b>${f0(c.idle)} 인·분</b></div>`;
   for(const a in DEF)['d','n'].forEach(s=>T(`o-def-${a}-${s}`,f0(DEF[a].reduce((x,[k])=>x+n(form.def[a][k][s]),0))));
   T('o-def-asm-t','주간 + 야간 '+f0(c.defAsm)+' EA');T('o-def-chg-t','주간 + 야간 '+f0(c.defChg)+' EA');
-  $('o-ppm').innerHTML=ppmCell('완성 불량 (조립 불량 '+f0(c.defAssy)+' EA 제외)',c.defQ,c.total,'생산량')+ppmCell('충전 불량',c.defChg,c.charge,'충전 수량');
+  $('o-ppm').innerHTML=ppmCell('불량률 (완성+충전, 조립 불량 '+f0(c.defAssy)+' EA 제외)',c.defQ,c.total,'생산량')+ppmCell('참고: 충전 불량만',c.defChg,c.charge,'충전 수량');
   T('o-chg',f0(c.charge));T('o-chgr',f0(CHG.reduce((s,[k])=>s+n(form.chg[k].r),0)));
   T('o-total',f0(c.total));T('o-ach',pct(c.ach));
   T('o-rate',c.total>0?f0(c.rate*1e6)+' PPM':'–');
   T('o-mh',f1(c.mhAsm));T('o-uph',isFinite(c.uph)?f1(c.uph):'–');
-  T('f-badge',formExisting?'저장된 일보 수정 중':'새 일보');
-  $('save').disabled=state.readOnly||!state.db;
+  T('f-badge',!formExisting?'새 일보':form.draft?'임시저장된 일보 작성 중':'저장된 일보 수정 중');
+  $('save').disabled=$('save-draft').disabled=state.readOnly||!state.db||saving;
 }
 // loadForm(날짜) = 그 날짜의 일보를 입력 화면에 엽니다.
 // 저장된 일보가 있으면 불러오고, 없으면 빈 일보를 만들되 직전 일보의 재적 인원과 계획 수량을 미리 채웁니다.
@@ -664,6 +714,7 @@ function loadForm(date){
   else{form=blank(date);formExisting=false;
     const prev=[...state.reports.keys()].filter(d=>d<date).sort().pop();
     if(prev){const p=normalize(state.reports.get(prev),prev);form.plan=p.plan;ATT.forEach(([k])=>{form.att[k].reg=p.att[k].reg})}}
+  if(!formExisting){autoSign(form);form.shift=cycleShift(date)} /* 새 일보는 근무표대로 근무조를 미리 선택해 둔다 */
   dirty=false;closePop();renderForm();$('status').textContent='';
 }
 // redrawRows = 설비부동/인원 부동 목록만 다시 그립니다(줄을 추가하거나 삭제했을 때).
@@ -689,18 +740,25 @@ $('form').addEventListener('click',e=>{
 // 입력 칸에서 Enter 를 눌러도 페이지가 새로 고쳐지지 않게 막습니다.
 $('form').addEventListener('submit',e=>e.preventDefault());
 // ★ [저장 버튼] 지금 입력한 일보를 저장소(서버)로 보냅니다. 성공하면 "저장했습니다", 실패하면 이유를 버튼 옆에 보여 줍니다.
-$('save').addEventListener('click',async()=>{
-  if(!state.db||!form.date)return;
-  const btn=$('save'),st=$('status');btn.disabled=true;st.textContent='저장 중…';
+let saving=false;
+async function saveForm(draft){
+  if(!state.db||!form.date||saving)return;
+  const st=$('status');saving=true;updateOut();st.textContent=draft?'임시저장 중…':'저장 중…';
   try{
+    autoSign(form);form.draft=draft; // draft=true 는 "아직 작성 중"이라는 표시. 저장 버튼을 누르면 false 로 바뀐다
     const doc=JSON.parse(JSON.stringify(form));doc.updatedAt=new Date().toISOString();
     await state.db.doc('reports/'+form.date).set(doc);
-    formExisting=true;dirty=false;state.period=form.date.slice(0,7);st.textContent=form.date+' 일보를 저장했습니다';
+    formExisting=true;dirty=false;state.period=form.date.slice(0,7);
+    st.textContent=form.date+(draft?' 일보를 임시저장했습니다. 이어서 작성하세요':' 일보를 저장했습니다');
+    const w=$(fid('sign.w'));if(w)w.value=form.sign.w;
   }catch(err){
     st.textContent=err&&err.rest?err.message:err&&err.code==='invalid_argument'?'저장 권한이 없습니다. 소유자에게 ‘참여자’ 이상 권한을 요청하세요.':err&&err.code==='quota_exceeded'?'저장 공간이 가득 찼습니다. 오래된 일보를 삭제하세요.':'저장하지 못했습니다. 잠시 후 다시 시도하세요.';
   }
-  updateOut();
-});
+  saving=false;updateOut();
+}
+// 임시저장과 저장은 같은 일을 하되, 임시저장은 "작성 중" 표시만 남긴다. 둘 다 등록 화면은 그대로 유지된다
+$('save').addEventListener('click',()=>saveForm(false));
+$('save-draft').addEventListener('click',()=>saveForm(true));
 
 /* ---------- 엑셀 불러오기 (2T4P 작업일보 양식의 셀 위치 기준) ---------- */
 // [7. 엑셀 불러오기]
@@ -756,7 +814,7 @@ function renderImp(){
 // openImp = 목록에서 고른 시트를 입력 화면에 채웁니다. 아직 저장된 것은 아니며, 확인 후 저장 버튼을 눌러야 합니다.
 function openImp(i){
   const s=imp.sheets[i],date=impDate(s);if(!date)return;
-  form=merge(blank(date),s.r);form.date=date;formExisting=state.reports.has(date);dirty=true;closePop();renderForm();
+  form=merge(blank(date),s.r);form.date=date;autoSign(form);fillShift(form);formExisting=state.reports.has(date);dirty=true;closePop();renderForm();
   $('status').textContent='엑셀 내용을 채웠습니다. 확인 후 저장을 누르세요';
 }
 // [파일을 골랐을 때] 엑셀 파일을 읽어 시트마다 parseSheet 를 실행합니다. 시트가 1장이면 바로 입력 화면에 채웁니다.
@@ -789,7 +847,7 @@ $('imp').addEventListener('click',async e=>{
     const ok=imp.sheets.filter(s=>impDate(s));
     if(!imp.confirm&&ok.some(s=>state.reports.has(impDate(s)))){imp.confirm=true;imp.msg='이미 저장된 날짜는 엑셀 내용으로 덮어씁니다. 한 번 더 누르면 저장합니다.';renderImp();return}
     imp.busy=true;imp.confirm=false;let done=0;
-    try{for(const s of ok){const date=impDate(s),doc=merge(blank(date),s.r);doc.date=date;doc.updatedAt=new Date().toISOString();
+    try{for(const s of ok){const date=impDate(s),doc=merge(blank(date),s.r);doc.date=date;autoSign(doc);fillShift(doc);doc.updatedAt=new Date().toISOString();
         imp.msg=`저장 중… ${done+1} / ${ok.length}`;renderImp();
         await state.db.doc('reports/'+date).set(JSON.parse(JSON.stringify(doc)));s.saved=true;done++}
       imp.msg=`${done}건을 저장했습니다. ‘분석’ 탭에서 확인하세요.`;state.period=impDate(ok[ok.length-1]).slice(0,7);
@@ -858,7 +916,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!pop.hidden)closePo
 
 /* ---------- shell ---------- */
 // [9. 탭 전환과 공통 기능]
-// show = 탭(분석 / 일보 입력 / 사용자 관리) 중 하나만 보이게 하고 나머지는 숨깁니다. 사용자 관리는 관리자만 열 수 있습니다.
+// show = 탭(분석 / 일보 등록 / 사용자 관리) 중 하나만 보이게 하고 나머지는 숨깁니다. 사용자 관리는 운영자만 열 수 있습니다.
 function show(tab){
   const v=tab==='input'?'input':tab==='users'&&srv.user&&srv.user.role==='admin'?'users':'dash';
   ['dash','input','users'].forEach(k=>{$('view-'+k).hidden=k!==v;$('tab-'+k).setAttribute('aria-selected',k===v)});
@@ -935,9 +993,9 @@ let authMode='login';
 function showAuth(mode){
   authMode=mode;const setup=mode==='setup';
   ['dash','input','users'].forEach(k=>$('view-'+k).hidden=true);$('tabs').hidden=true;$('who').hidden=true;$('view-auth').hidden=false;
-  $('auth-title').textContent=setup?'관리자 계정 만들기':'로그인';
-  $('auth-desc').textContent=setup?'처음 실행입니다. 관리자로 쓸 사번과 비밀번호(6자 이상)를 정하세요. 현장관리자 사번은 로그인 후 ‘사용자 관리’에서 등록합니다.':'부여받은 사번과 비밀번호를 입력하세요.';
-  $('au-name-l').hidden=!setup;$('au-pw2-l').hidden=!setup;$('auth-go').textContent=setup?'관리자 계정 만들기':'로그인';$('auth-err').textContent='';
+  $('auth-title').textContent=setup?'운영자 계정 만들기':'로그인';
+  $('auth-desc').textContent=setup?'처음 실행입니다. 운영자(전체 권한)로 쓸 사번과 비밀번호(6자 이상)를 정하세요. 관리자와 현장관리자 사번은 로그인 후 ‘사용자 관리’에서 등록합니다.':'부여받은 사번과 비밀번호를 입력하세요.';
+  $('au-name-l').hidden=!setup;$('au-pw2-l').hidden=!setup;$('auth-go').textContent=setup?'운영자 계정 만들기':'로그인';$('auth-err').textContent='';
 }
 // [로그인 버튼] 사번과 비밀번호를 서버로 보내 확인받습니다. 맞으면 enter 로 넘어가고, 틀리면 빨간 글씨로 이유를 보여 줍니다.
 $('auth-form').addEventListener('submit',async e=>{
@@ -949,10 +1007,10 @@ $('auth-form').addEventListener('submit',async e=>{
   catch(x){err.textContent=x.message}
   $('auth-go').disabled=false;
 });
-// enter = 로그인에 성공한 뒤의 준비 작업: 오른쪽 위에 이름 표시, 관리자면 "사용자 관리" 탭 보이기, 일보 받아 오기 시작
+// enter = 로그인에 성공한 뒤의 준비 작업: 오른쪽 위에 이름 표시, 운영자면 "사용자 관리" 탭 보이기, 일보 받아 오기 시작
 function enter(user){
   srv.user=user;state.readOnly=false;
-  $('who').hidden=false;$('who-name').innerHTML=`<b>${esc(user.name)}</b> (${esc(user.id)}) · ${user.role==='admin'?'관리자':'현장관리자'}`;
+  $('who').hidden=false;$('who-name').innerHTML=`<b>${esc(user.name)}</b> (${esc(user.id)}) · ${ROLE[user.role]||''}${user.crew?' · '+esc(user.crew)+'조':''}`;
   $('tab-users').hidden=user.role!=='admin';
   state.db=restDb();show(location.hash.slice(1));updateOut();subscribe(state.db);
 }
@@ -967,28 +1025,28 @@ $('pw-box').addEventListener('submit',async e=>{
   try{await api('POST','/api/password',{old:$('pw-old').value,new:$('pw-new').value});['pw-old','pw-new','pw-new2'].forEach(i=>$(i).value='');$('pw-box').hidden=true;notice('비밀번호를 변경했습니다.');setTimeout(()=>notice(''),4000)}
   catch(x){m.textContent=x.message}
 });
-// [12. 사용자 관리 (관리자 전용)]
+// [12. 사용자 관리 (운영자 전용)]
 // users = 서버에서 받아 온 사용자 목록, uEdit = 지금 비밀번호 초기화/삭제 확인 중인 사번
 let users=[],uEdit=null;
 // loadUsers = 서버에서 사용자 목록을 받아 와 표를 그립니다.
 async function loadUsers(){try{users=(await api('GET','/api/users')).users}catch(e){$('u-msg').textContent=e.message}renderUsers()}
 // renderUsers = 사용자 목록 표를 그립니다. 본인 줄에는 "나" 표시가 붙고, 본인은 사용 중지/삭제할 수 없습니다.
 function renderUsers(){
-  $('u-tbl').innerHTML='<thead><tr><th>사번</th><th>이름</th><th>권한</th><th>상태</th><th>등록일</th><th></th></tr></thead><tbody>'+users.map(u=>{
+  $('u-tbl').innerHTML='<thead><tr><th>사번</th><th>이름</th><th>권한</th><th>소속 조</th><th>상태</th><th>등록일</th><th></th></tr></thead><tbody>'+users.map(u=>{
     const me=u.id===srv.user.id,id=esc(u.id),ed=uEdit&&uEdit.id===u.id?uEdit.mode:'';
     const act=ed==='pw'?`<input type="text" id="u-newpw" placeholder="새 비밀번호 (6자 이상)" aria-label="새 비밀번호"><button type="button" class="btn sm" data-ua="pwok" data-uid="${id}">변경</button><button type="button" class="btn sm" data-ua="cancel">취소</button>`
       :ed==='del'?`<button type="button" class="btn sm danger" data-ua="delok" data-uid="${id}">삭제 확인</button><button type="button" class="btn sm" data-ua="cancel">취소</button>`
-      :`<button type="button" class="btn sm" data-ua="pw" data-uid="${id}">비밀번호 초기화</button>`+(me?'':`<button type="button" class="btn sm" data-ua="role" data-uid="${id}">${u.role==='admin'?'현장관리자로 변경':'관리자로 변경'}</button><button type="button" class="btn sm" data-ua="toggle" data-uid="${id}">${u.active?'사용 중지':'사용 재개'}</button><button type="button" class="btn sm danger" data-ua="del" data-uid="${id}">삭제</button>`);
-    return `<tr><td>${id}</td><td>${esc(u.name)}${me?' <span class="badge">나</span>':''}</td><td>${u.role==='admin'?'관리자':'현장관리자'}</td><td>${u.active?'사용 중':'<span class="down">사용 중지</span>'}</td><td>${esc(String(u.created||'').slice(0,10))}</td><td><span class="act">${act}</span></td></tr>`}).join('')+'</tbody>';
+      :`<button type="button" class="btn sm" data-ua="pw" data-uid="${id}">비밀번호 초기화</button>`+(me?'':`<select data-urole="${id}" aria-label="권한 변경">${Object.entries(ROLE).map(([k,l])=>`<option value="${k}"${k===u.role?' selected':''}>${l}</option>`).join('')}</select><button type="button" class="btn sm" data-ua="toggle" data-uid="${id}">${u.active?'사용 중지':'사용 재개'}</button><button type="button" class="btn sm danger" data-ua="del" data-uid="${id}">삭제</button>`);
+    return `<tr><td>${id}</td><td>${esc(u.name)}${me?' <span class="badge">나</span>':''}</td><td>${ROLE[u.role]||esc(u.role)}</td><td><select data-ucrew="${id}" aria-label="소속 조">${[['','없음'],['A','A조'],['B','B조'],['C','C조']].map(([k,l])=>`<option value="${k}"${k===(u.crew||'')?' selected':''}>${l}</option>`).join('')}</select></td><td>${u.active?'사용 중':'<span class="down">사용 중지</span>'}</td><td>${esc(String(u.created||'').slice(0,10))}</td><td><span class="act">${act}</span></td></tr>`}).join('')+'</tbody>';
 }
 // [등록 버튼] 새 사번을 서버에 등록합니다.
 $('u-add').addEventListener('submit',async e=>{
   e.preventDefault();const m=$('u-msg');
-  try{await api('POST','/api/users',{id:$('u-id').value.trim(),name:$('u-name').value.trim(),password:$('u-pw').value,role:$('u-role').value});
-    m.textContent=$('u-id').value.trim()+' 사번을 등록했습니다.';['u-id','u-name','u-pw'].forEach(i=>$(i).value='');loadUsers()}
+  try{await api('POST','/api/users',{id:$('u-id').value.trim(),name:$('u-name').value.trim(),password:$('u-pw').value,role:$('u-role').value,crew:$('u-crew').value});
+    m.textContent=$('u-id').value.trim()+' 사번을 등록했습니다.';['u-id','u-name','u-pw','u-crew'].forEach(i=>$(i).value='');loadUsers()}
   catch(x){m.textContent=x.message}
 });
-// [사용자 목록의 버튼] 비밀번호 초기화, 권한 변경(관리자 ↔ 현장관리자), 사용 중지/재개, 삭제
+// [사용자 목록의 버튼] 비밀번호 초기화, 사용 중지/재개, 삭제 (권한 변경은 아래 선택 상자에서)
 $('u-tbl').addEventListener('click',async e=>{
   const b=e.target.closest('button');if(!b)return;const a=b.dataset.ua,id=b.dataset.uid,u=users.find(x=>x.id===id),m=$('u-msg');m.textContent='';
   try{
@@ -996,13 +1054,19 @@ $('u-tbl').addEventListener('click',async e=>{
     if(a==='cancel'){uEdit=null;renderUsers();return}
     if(a==='pwok'){await api('POST','/api/users/'+encodeURIComponent(id),{password:$('u-newpw').value});m.textContent=id+' 비밀번호를 바꿨습니다.'}
     else if(a==='delok')await api('DELETE','/api/users/'+encodeURIComponent(id));
-    else if(a==='role')await api('POST','/api/users/'+encodeURIComponent(id),{role:u.role==='admin'?'user':'admin'});
     else if(a==='toggle')await api('POST','/api/users/'+encodeURIComponent(id),{active:!u.active});
     uEdit=null;loadUsers();
   }catch(x){m.textContent=x.message}
 });
 // bootServer = 사내망 서버로 접속했을 때의 시작 절차: 서버에 "나 로그인되어 있나요?"라고 물어보고
-//   사용자가 한 명도 없으면 → 관리자 계정 만들기 화면 / 로그인 안 됐으면 → 로그인 화면 / 됐으면 → 바로 입장
+//   사용자가 한 명도 없으면 → 운영자 계정 만들기 화면 / 로그인 안 됐으면 → 로그인 화면 / 됐으면 → 바로 입장
+// [권한 또는 소속 조 선택 상자를 바꿨을 때] 그 사번의 권한/소속 조를 서버에 저장한다
+$('u-tbl').addEventListener('change',async e=>{
+  const d=e.target.dataset,id=d.urole||d.ucrew;if(!id)return;const m=$('u-msg'),v=e.target.value;
+  try{if(d.urole){await api('POST','/api/users/'+encodeURIComponent(id),{role:v});m.textContent=id+' 권한을 '+ROLE[v]+'(으)로 바꿨습니다.'}
+    else{await api('POST','/api/users/'+encodeURIComponent(id),{crew:v});m.textContent=id+' 소속 조를 '+(v?v+'조':'없음')+'(으)로 바꿨습니다.'}}catch(x){m.textContent=x.message}
+  loadUsers();
+});
 async function bootServer(){
   srv.on=true;let me;
   try{me=await api('GET','/api/me')}catch(e){state.loaded=true;notice(e.message);renderDash();updateOut();return}

@@ -390,6 +390,16 @@ class Handler(BaseHTTPRequestHandler):
                 st.delete_report(p[1])
             return self.send_json({"ok": True, "rev": st.rev})
 
+        # GET /api/crews : 조별 현장관리자 이름 (로그인한 누구나). 실적표의 "작성자(야간조)" 표시에 쓴다. 이름만 보내고 사번은 보내지 않는다
+        if p == ["crews"] and m == "GET":
+            self.need_user()
+            crews = {"A": [], "B": [], "C": []}
+            for uid in sorted(st.users):
+                u = st.users[uid]
+                if u["role"] == "user" and u.get("active", True) and u.get("crew") in crews:
+                    crews[u["crew"]].append(u["name"])
+            return self.send_json({"crews": crews})
+
         # GET /api/users : 사용자 목록(운영자만)
         if p == ["users"] and m == "GET":
             self.need_user(admin=True)

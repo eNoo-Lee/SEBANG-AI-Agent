@@ -200,7 +200,27 @@ textarea{width:100%;min-height:96px;resize:vertical;border-radius:0}
 .vh:focus-visible+*,label.btn:has(+.vh:focus-visible){outline:2px solid var(--accent)}
 #imp td,#imp th{text-align:right}
 #imp td:first-child,#imp th:first-child,#imp td:nth-child(2),#imp th:nth-child(2){text-align:left}
-@media (prefers-reduced-motion:no-preference){.hb .tr b{transition:width .25s}}
+/* ----- 분석 탭: 항목 제목(단위)과 설명, 합쳐진 불량 유형, 기간 줄 ----- */
+.ph{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ph .cap{margin:0}
+h2 .u{font-weight:400;font-size:13px;color:var(--ink2)}
+.panel.wide{grid-column:1/-1}
+.multi{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:16px 28px}
+.mb{display:flex;flex-direction:column;gap:8px;min-width:0}
+.seg,.pnav{display:inline-flex;gap:4px;align-items:center}
+.seg .tg{height:30px}
+/* [상단 고정] 분석 탭에서는 제목 줄(header)과 기간 줄(.pbar)이 화면을 내려도 위에 붙어 있습니다. --hh 는 제목 줄 높이(자바스크립트가 잽니다) */
+.wrap.dash-on header{position:sticky;top:env(safe-area-inset-top,0px);z-index:16;background:var(--plane);padding-top:10px;margin-top:-10px}
+.pbar{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--hh,58px));z-index:15;background:var(--plane);padding-block:8px;margin-block:-8px;box-shadow:0 1px 0 var(--grid)}
+@media (max-width:640px){.wrap.dash-on header{position:static}.pbar{top:env(safe-area-inset-top,0px)}} /* 휴대폰에서는 기간 줄만 고정 */
+/* 실적표: 제목 칸은 줄바꿈을 허용하고 단위를 아랫줄 작은 글씨로 내려 가로 폭을 줄입니다 */
+#tbl th{white-space:normal;line-height:1.25;vertical-align:bottom;padding:6px}
+#tbl th small{display:block;font-weight:400;color:var(--muted);white-space:nowrap}
+#tbl td{padding:6px}
+/* ----- 애니메이션: 분석 탭을 처음 열거나 기간을 바꿀 때 (.anim 이 붙어 있는 동안만) ----- */
+@media (prefers-reduced-motion:no-preference){
+  /* 그래프는 애니메이션 없이 바로 표시합니다. 움직이는 것은 요약 숫자뿐이며, 속도는 자바스크립트 countUp 의 1200(1000 = 1초)입니다 */
+}
 </style>
 <!-- [엑셀 읽기 도구 불러오기] 엑셀 파일을 읽으려면 XLSX 라는 도구가 필요합니다. -->
 <!-- 먼저 vendor 폴더의 파일을 찾고, 없으면 인터넷(cdnjs)에서 받아옵니다. 인터넷이 안 되는 사내망에서는 vendor 폴더에 파일이 있어야 합니다. -->
@@ -263,9 +283,12 @@ var s=document.createElement('script');s.src='vendor/xlsx.full.min.js';s.onload=
   <!-- 여기에는 빈 자리(id)만 있고, 실제 숫자와 그래프는 자바스크립트의 renderDash 함수가 채웁니다. -->
   <main id="view-dash">
     <div style="display:flex;flex-direction:column;gap:20px">
-      <div class="filters">
-        <label for="period">기간</label>
-        <select id="period"><option value="all">전체 기간</option></select>
+      <!-- [기간 선택 줄] 화면을 아래로 내려도 맨 위에 고정됩니다. 단위(전체/연/월/주/일)를 고른 뒤 ◀ ▶ 또는 목록으로 기간을 옮깁니다 -->
+      <div class="filters pbar" id="pbar">
+        <span class="seg" id="unit-seg" role="group" aria-label="기간 단위">
+          <button type="button" class="tg" data-unit="all">전체</button><button type="button" class="tg" data-unit="year">연</button><button type="button" class="tg" data-unit="month">월</button><button type="button" class="tg" data-unit="week">주</button><button type="button" class="tg" data-unit="day">일</button>
+        </span>
+        <span class="pnav"><button type="button" class="btn sm" id="p-prev" aria-label="이전 기간">◀</button><select id="period" aria-label="기간"><option value="all">전체 기간</option></select><button type="button" class="btn sm" id="p-next" aria-label="다음 기간">▶</button></span>
         <span class="cap" id="period-info"></span>
         <span class="spacer"></span>
         <button type="button" class="btn" id="csv" hidden>CSV 내려받기</button>
@@ -274,27 +297,34 @@ var s=document.createElement('script');s.src='vendor/xlsx.full.min.js';s.onload=
       <div id="dash-body" hidden style="display:flex;flex-direction:column;gap:20px">
         <section class="kpis" id="kpis"></section>
         <section class="panel"><h2>자동 분석 요약</h2><ul class="insight" id="insight"></ul></section>
+        <!-- 각 항목: 제목 뒤에 (단위)만 붙입니다 (설명 문구는 넣지 않음) -->
         <section class="panel">
-          <div class="hd"><h2>일별 생산량 (라인별)</h2><div class="legend" id="lg-prod"></div></div>
+          <div class="ph"><h2>일별 생산량/라인별 <span class="u">(EA)</span></h2></div>
+          <div class="legend" id="lg-prod"></div>
           <div class="chart" id="c-prod"></div>
         </section>
         <div class="grid2">
-          <section class="panel"><div class="hd"><h2>불량률 추이</h2><span class="cap">PPM · 완성+충전 불량 ÷ 생산량 · 조립 불량(단락·저전류·기타(조립)) 제외 · 휴무일은 0</span></div><div class="chart" id="c-rate"></div></section>
-          <section class="panel"><div class="hd"><h2>인시당 생산량 추이</h2><span class="cap">생산량 ÷ 완성 작업시간, EA/인시</span></div><div class="chart" id="c-uph"></div></section>
-          <section class="panel"><div class="hd"><h2>라인별 실적</h2><span class="cap">생산량 · 가동 시간당 생산량</span></div><h3>생산량 (EA)</h3><div class="hb" id="c-line"></div><h3>시간당 생산량 (EA/h)</h3><div class="hb" id="c-lineh"></div></section>
+          <section class="panel"><div class="ph"><h2>불량률 추이 <span class="u">(PPM)</span></h2></div><div class="chart" id="c-rate"></div></section>
+          <section class="panel"><div class="ph"><h2>인시당 생산량 추이 <span class="u">(EA/인시)</span></h2></div><div class="chart" id="c-uph"></div></section>
+          <section class="panel"><div class="ph"><h2>라인별 실적</h2></div><h3>생산량 (EA)</h3><div class="hb" id="c-line"></div><h3>시간당 생산량 (EA/h)</h3><div class="hb" id="c-lineh"></div></section>
           <!-- 비공개 자료: 현장관리자에게는 숨깁니다 (조끼리 생산량 경쟁을 막기 위해). 숨김 처리는 renderDash 에서 합니다 -->
-          <section class="panel" id="p-crew"><div class="hd"><h2>조별 생산량 <span class="badge">비공개</span></h2><span class="cap">생산량 · 가동 시간당 생산량 · 관리자와 운영자만 볼 수 있습니다</span></div><h3>생산량 (EA)</h3><div class="hb" id="c-crew"></div><h3>시간당 생산량 (EA/h)</h3><div class="hb" id="c-crewh"></div></section>
-          <section class="panel"><div class="hd"><h2>조별 불량률</h2><span class="cap">PPM · 완성+충전 불량, 조립 불량 제외 · 근무조를 입력한 일보만 집계</span></div><div class="hb" id="c-crewdef"></div></section>
-          <section class="panel"><div class="hd"><h2>주간/야간 불량률</h2><span class="cap">PPM · 완성+충전 불량, 조립 불량 제외 · 그 시간대 근무조의 생산량 기준</span></div><div class="hb" id="c-shiftdef"></div></section>
-          <section class="panel"><div class="hd"><h2>불량 유형(전체)</h2><span class="cap">완성 · 충전 합산, EA · (조립)은 PPM 계산에서 제외</span></div><div class="hb" id="c-def"></div></section>
-          <!-- 조별 불량 유형: 현장관리자는 본인 조의 것만, 관리자와 운영자는 세 조 모두 봅니다. 숨김 처리는 renderDash 에서 합니다 -->
-          <section class="panel" id="p-ct-A" hidden><div class="hd"><h2>불량 유형(A조)</h2><span class="cap">A조가 근무한 주간/야간의 완성 · 충전 불량, EA</span></div><div class="hb" id="c-ct-A"></div></section>
-          <section class="panel" id="p-ct-B" hidden><div class="hd"><h2>불량 유형(B조)</h2><span class="cap">B조가 근무한 주간/야간의 완성 · 충전 불량, EA</span></div><div class="hb" id="c-ct-B"></div></section>
-          <section class="panel" id="p-ct-C" hidden><div class="hd"><h2>불량 유형(C조)</h2><span class="cap">C조가 근무한 주간/야간의 완성 · 충전 불량, EA</span></div><div class="hb" id="c-ct-C"></div></section>
-          <section class="panel"><div class="hd"><h2>손실 시간</h2><span class="cap">분 (인원 부동은 인원×분)</span></div><div class="hb" id="c-loss"></div></section>
+          <section class="panel" id="p-crew"><div class="ph"><h2>조별 생산량 <span class="badge">비공개</span></h2></div><h3>생산량 (EA)</h3><div class="hb" id="c-crew"></div><h3>시간당 생산량 (EA/h)</h3><div class="hb" id="c-crewh"></div></section>
+          <section class="panel"><div class="ph"><h2>조별 불량률 <span class="u">(PPM)</span></h2></div><div class="hb" id="c-crewdef"></div></section>
+          <section class="panel"><div class="ph"><h2>주간/야간 불량률 <span class="u">(PPM)</span></h2></div><div class="hb" id="c-shiftdef"></div></section>
+          <section class="panel" id="p-loss"><div class="ph"><h2>손실 시간 <span class="u">(분)</span></h2></div><div class="hb" id="c-loss"></div></section>
+          <!-- 불량 유형: 전체 + 조별을 한 항목에 모았습니다. 현장관리자는 전체와 본인 조만 보이고, 보이는 칸 수에 맞춰 폭이 자동으로 나뉩니다 -->
+          <section class="panel wide">
+            <div class="ph"><h2>불량 유형 <span class="u">(EA)</span></h2></div>
+            <div class="multi">
+              <div class="mb"><h3>전체 (EA)</h3><div class="hb" id="c-def"></div></div>
+              <div class="mb" id="p-ct-A" hidden><h3>A조 (EA)</h3><div class="hb" id="c-ct-A"></div></div>
+              <div class="mb" id="p-ct-B" hidden><h3>B조 (EA)</h3><div class="hb" id="c-ct-B"></div></div>
+              <div class="mb" id="p-ct-C" hidden><h3>C조 (EA)</h3><div class="hb" id="c-ct-C"></div></div>
+            </div>
+          </section>
         </div>
         <section class="panel">
-          <div class="hd"><h2 id="tbl-title">실적표</h2><span class="filters"><span class="cap" id="tbl-cap"></span><button type="button" class="tg" id="tm-day">일별</button><button type="button" class="tg" id="tm-month">월별</button></span></div>
+          <div class="hd"><div class="ph"><h2 id="tbl-title">실적표</h2></div><span class="filters"><button type="button" class="tg" id="tm-day">일별</button><button type="button" class="tg" id="tm-month">월별</button></span></div>
           <div class="scroll"><table id="tbl"></table></div>
         </section>
       </div>
@@ -392,7 +422,10 @@ const canPrivate=()=>!srv.on||(!!srv.user&&srv.user.role!=='user');
 // canSeeCrew(조) = 그 조의 불량 유형 자료를 볼 수 있는지. 관리자·운영자는 전부, 현장관리자는 본인 조(user.crew)만
 const canSeeCrew=k=>canPrivate()||(!!srv.user&&srv.user.crew===k);
 const canDel=()=>srv.on?!!srv.user&&srv.user.role==='admin':!state.readOnly;
-const writer=d=>{const r=state.reports.get(d)||{},u=r.updatedBy;return (u&&u.name?u.name:'–')+(r.draft===true?' · 임시저장':'')};
+// writer(날짜) = 실적표의 작성자. 그 날 야간 근무조(shift.N)에 소속된 현장관리자 이름. 근무조나 소속 조 정보가 없으면 마지막으로 저장한 사람 이름
+const writer=d=>{const r=state.reports.get(d)||{},u=r.updatedBy,lead=(state.crewLead||{})[(r.shift||{}).N];return (lead&&lead.length?lead.join(', '):u&&u.name?u.name:'–')+(r.draft===true?' · 임시저장':'')};
+// loadCrews = 서버에서 조별 현장관리자 이름표를 받아 온다 (예: {A:['황성식'],B:['정성호'],C:['이영환']})
+async function loadCrews(){try{state.crewLead=(await api('GET','/api/crews')).crews}catch(e){state.crewLead={}}if(!$('view-dash').hidden)renderDash()}
 
 /* ---------- data model ---------- */
 // blank(날짜) = 모든 칸이 비어 있는 새 일보 한 건을 만듭니다. 일보에 어떤 항목이 들어가는지는 이 함수를 보면 됩니다.
@@ -460,6 +493,7 @@ function calc(r){
 
 /* ---------- charts ---------- */
 // [4. 그래프 그리기] 그래프는 SVG 라는 그림 형식의 글자를 만들어 화면에 넣는 방식으로 그립니다.
+// 그래프는 애니메이션 없이 바로 그려집니다. (class="gy", "fade" 는 예전 애니메이션용 이름표로, 지금은 아무 동작도 하지 않습니다)
 // niceMax = 그래프 세로축 최댓값을 보기 좋은 숫자(1, 2, 2.5, 5, 10 단위)로 올림합니다.
 function niceMax(v){if(!(v>0))return 1;const p=Math.pow(10,Math.floor(Math.log10(v))),m=v/p;return (m<=1?1:m<=2?2:m<=2.5?2.5:m<=5?5:10)*p}
 // frame = 그래프의 바탕(가로 눈금선 5줄과 왼쪽 숫자)을 그리고, 값 → 화면 높이로 바꾸는 계산식(y)을 돌려줍니다.
@@ -471,85 +505,116 @@ function frame(el,max,fmt){
 }
 // xLabels = 그래프 아래쪽 날짜 글자. 날짜가 많으면 겹치지 않게 몇 칸씩 건너뛰며 씁니다.
 function xLabels(f,days){const band=f.iw/days.length,step=Math.max(1,Math.ceil(34/band));let s='';days.forEach((d,i)=>{if(i%step===0||days.length<=1)s+=`<text x="${f.L+band*(i+.5)}" y="${f.H-7}" text-anchor="middle">${esc(md(d))}</text>`});return s}
-// stackChart = 쌓은 막대 그래프(일별 생산량: G/H/I/J 라인을 한 막대에 쌓고, 계획 수량은 검은 가로선으로 표시)
+// stackChart = 쌓은 막대 그래프(일별 생산량: G/H/I/J 라인을 한 막대에 쌓음).
+// 계획 수량은 "계단선"으로 그립니다: 하루 폭만큼 가로로 가다가, 다음 날 계획이 다르면 직각으로 꺾여 올라가거나 내려갑니다.
 function stackChart(el,days,series,marker){
   const tot=days.map((_,i)=>series.reduce((s,x)=>s+x.vals[i],0));
   const max=niceMax(Math.max(...tot,...marker.vals,1));
   const f=frame(el,max,v=>v>=1000?(v/1000).toLocaleString('ko-KR')+'천':f0(v));
-  const band=f.iw/days.length,bw=Math.min(40,band*.68);let s=f.s;
+  const band=f.iw/days.length,bw=Math.min(40,band*.68),y0=f.y(0);let s=f.s,hits='';
   days.forEach((d,i)=>{
     const x=f.L+band*i+(band-bw)/2;let acc=0;const last=series.reduce((a,x,j)=>x.vals[i]>0?j:a,-1);
-    series.forEach((se,j)=>{const v=se.vals[i];if(!(v>0))return;const y1=f.y(acc+v),y0=f.y(acc);acc+=v;let h=y0-y1;const top=j===last;if(!top&&h>3){h-=2}
-      const yy=top?y1:y0-h, r=top?Math.min(4,h,bw/2):0;
+    s+=`<g class="gy" style="transform-origin:0 ${y0}px">`; /* 막대 하나(하루치)를 묶어 바닥선에서부터 자라게 한다. 모든 막대가 동시에 자란다 */
+    series.forEach((se,j)=>{const v=se.vals[i];if(!(v>0))return;const y1=f.y(acc+v),ya=f.y(acc);acc+=v;let h=ya-y1;const top=j===last;if(!top&&h>3){h-=2}
+      const yy=top?y1:ya-h, r=top?Math.min(4,h,bw/2):0;
       s+=`<path d="M${x},${yy+h}V${yy+r}Q${x},${yy} ${x+r},${yy}H${x+bw-r}Q${x+bw},${yy} ${x+bw},${yy+r}V${yy+h}Z" style="fill:var(${se.color})"/>`});
-    if(marker.vals[i]>0){const y=f.y(marker.vals[i]);s+=`<line x1="${x-4}" x2="${x+bw+4}" y1="${y}" y2="${y}" style="stroke:var(--ink)" stroke-width="2"/>`}
+    s+='</g>';
     const tip=[d,...series.map(se=>se.label+'  '+f0(se.vals[i])),'합계  '+f0(tot[i]),marker.vals[i]>0?marker.label+'  '+f0(marker.vals[i]):null].filter(Boolean).join('\n');
-    s+=`<rect class="hit" x="${f.L+band*i}" y="${f.T}" width="${band}" height="${f.ih}" data-tip="${esc(tip)}"/>`;
+    hits+=`<rect class="hit" x="${f.L+band*i}" y="${f.T}" width="${band}" height="${f.ih}" data-tip="${esc(tip)}"/>`;
   });
-  if(days.length<=12)days.forEach((d,i)=>{if(tot[i]>0)s+=`<text class="dl" x="${f.L+band*(i+.5)}" y="${Math.min(f.y(tot[i]),marker.vals[i]>0?f.y(marker.vals[i]):1e9)-5}" text-anchor="middle">${f0(tot[i])}</text>`});
-  el.innerHTML=s+xLabels(f,days)+'</svg>';
+  let p='',prev=false; /* 계획 계단선: M=시작점, H=가로로, V=세로로(직각) */
+  marker.vals.forEach((v,i)=>{if(!(v>0)){prev=false;return}const xa=f.L+band*i,y=f.y(v);p+=(prev?'V'+y:'M'+xa+','+y)+'H'+(xa+band);prev=true});
+  if(p)s+=`<g class="gy" style="transform-origin:0 ${y0}px"><path d="${p}" fill="none" style="stroke:var(--ink)" stroke-width="2" stroke-linejoin="miter" vector-effect="non-scaling-stroke"/></g>`;
+  if(days.length<=12)days.forEach((d,i)=>{if(tot[i]>0)s+=`<text class="dl fade" x="${f.L+band*(i+.5)}" y="${Math.min(f.y(tot[i]),marker.vals[i]>0?f.y(marker.vals[i]):1e9)-5}" text-anchor="middle">${f0(tot[i])}</text>`});
+  el.innerHTML=s+hits+xLabels(f,days)+'</svg>';
 }
 // lineChart = 선 그래프(불량률 PPM 추이, 인시당 생산량 추이). 마지막 점에는 값을 글자로 붙입니다.
+// 선과 점을 한 묶음(class="gy")으로 만들어, 처음에는 바닥의 직선이었다가 실제 모양으로 솟아오르게 합니다.
 function lineChart(el,days,vals,fmt,color,unit){
   const ok=vals.filter(v=>isFinite(v));
   if(!ok.length){el.innerHTML='<div class="empty">표시할 값이 없습니다</div>';return}
-  const max=niceMax(Math.max(...ok)*1.1),f=frame(el,max,fmt),band=f.iw/days.length;let s=f.s,p='',pen=false,lastI=-1;
+  const max=niceMax(Math.max(...ok)*1.1),f=frame(el,max,fmt),band=f.iw/days.length;let s=f.s,p='',pen=false,lastI=-1,hits='';
   vals.forEach((v,i)=>{if(!isFinite(v)){pen=false;return}p+=(pen?'L':'M')+(f.L+band*(i+.5))+','+f.y(v);pen=true;lastI=i});
-  s+=`<path d="${p}" fill="none" style="stroke:var(${color})" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  s+=`<g class="gy" style="transform-origin:0 ${f.y(0)}px"><path d="${p}" fill="none" style="stroke:var(${color})" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
   const rr=days.length>20?0:4;
   vals.forEach((v,i)=>{if(!isFinite(v))return;const lone=!isFinite(vals[i-1])&&!isFinite(vals[i+1]);const r=i===lastI?4.5:lone?4:rr; /* 앞뒤 값이 비어 선으로 이어지지 않는 날은 점으로 표시 */if(r)s+=`<circle cx="${f.L+band*(i+.5)}" cy="${f.y(v)}" r="${r}" style="fill:var(${color});stroke:var(--surface)" stroke-width="2"/>`;
-    s+=`<rect class="hit" x="${f.L+band*i}" y="${f.T}" width="${band}" height="${f.ih}" data-tip="${esc(days[i]+'\n'+fmt(v)+(unit||''))}"/>`});
+    hits+=`<rect class="hit" x="${f.L+band*i}" y="${f.T}" width="${band}" height="${f.ih}" data-tip="${esc(days[i]+'\n'+fmt(v)+(unit||''))}"/>`});
+  s+='</g>';
   const lx=f.L+band*(lastI+.5),anchor=lx>f.W-70?'end':lx<f.L+40?'start':'middle';
-  s+=`<text class="dl" x="${anchor==='end'?lx-8:anchor==='start'?lx+8:lx}" y="${f.y(vals[lastI])-9}" text-anchor="${anchor}">${esc(fmt(vals[lastI]))}</text>`;
-  el.innerHTML=s+xLabels(f,days)+'</svg>';
+  s+=`<text class="dl fade" x="${anchor==='end'?lx-8:anchor==='start'?lx+8:lx}" y="${f.y(vals[lastI])-9}" text-anchor="${anchor}">${esc(fmt(vals[lastI]))}</text>`;
+  el.innerHTML=s+hits+xLabels(f,days)+'</svg>';
 }
 // hbars = 가로 막대 그래프(라인별/조별 실적, 불량 유형, 손실 시간). 가장 큰 값을 100% 길이로 놓고 나머지는 비율대로 그립니다.
 function hbars(el,rows,fmt,unit){
   const max=Math.max(...rows.map(r=>isFinite(r.value)?r.value:0),0);
   if(!rows.length||!(max>0)){el.innerHTML='<div class="empty" style="grid-column:1/-1">기록된 값이 없습니다</div>';return}
-  el.innerHTML=rows.map(r=>{const v=isFinite(r.value)?r.value:0;return `<div class="row" ><span>${esc(r.label)}</span><span class="tr" data-tip="${esc(r.label+'\n'+fmt(v)+(unit||'')+(r.sub?'\n'+r.sub:''))}"><b style="width:${(v/max*100).toFixed(1)}%;background:var(${r.color||'--s1'})"></b></span><span class="n">${esc(isFinite(r.value)?fmt(v):'–')}${r.sub?' <span style="color:var(--muted)">'+esc(r.sub)+'</span>':''}</span></div>`}).join('');
+  el.innerHTML=rows.map((r,i)=>{const v=isFinite(r.value)?r.value:0;return `<div class="row" ><span>${esc(r.label)}</span><span class="tr" data-tip="${esc(r.label+'\n'+fmt(v)+(unit||'')+(r.sub?'\n'+r.sub:''))}"><b style="width:${(v/max*100).toFixed(1)}%;background:var(${r.color||'--s1'})"></b></span><span class="n">${esc(isFinite(r.value)?fmt(v):'–')}${r.sub?' <span style="color:var(--muted)">'+esc(r.sub)+'</span>':''}</span></div>`}).join('');
 }
 
 // 그래프 하나를 그리다 문제가 생겨도 나머지 화면은 계속 나오게 한다 (그 그래프 자리에만 안내 문구 표시)
 const safeDraw=fn=>function(el){try{return fn.apply(null,arguments)}catch(e){el.innerHTML='<div class="empty" style="grid-column:1/-1">이 그래프를 그리지 못했습니다</div>'}};
 stackChart=safeDraw(stackChart);lineChart=safeDraw(lineChart);hbars=safeDraw(hbars);
+// countUp = 요약 숫자를 0 에서 실제 값까지 1.2초 동안 올라가게 한다 (class="cnt" 인 숫자들)
+function countUp(root){root.querySelectorAll('.cnt').forEach(el=>{const to=+el.dataset.v,fmt=+el.dataset.d?f1:f0,t0=performance.now();
+  const step=t=>{const k=Math.max(0,Math.min(1,(t-t0)/1200)),e=1-Math.pow(1-k,3);el.textContent=fmt(to*e);if(k<1&&el.isConnected)requestAnimationFrame(step);else el.textContent=fmt(to)};requestAnimationFrame(step)})}
 
 /* ---------- dashboard ---------- */
 // [5. 분석 탭]
-// selected = 저장된 일보를 날짜순으로 정렬하고, 기간 선택(전체 / 연도 / 월)에 해당하는 일보만 골라냅니다.
-// 기간을 아직 고르지 않았으면 가장 최근 월을 기본으로 잡습니다.
+// 기간은 state.period 한 값으로 기억한다:  'all' = 전체,  '2026' = 연,  '2026-01' = 월,  'w2026-01-26' = 그 월요일부터 일요일까지의 주,  '2026-01-31' = 하루
+const dOf=s=>new Date(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10));
+const weekKey=d=>{const t=dOf(d);t.setDate(t.getDate()-((t.getDay()+6)%7));return 'w'+iso(t.getFullYear(),t.getMonth(),t.getDate())}; // 그 날짜가 속한 주의 월요일
+const unitOf=p=>!p||p==='all'?'all':p[0]==='w'?'week':p.length===4?'year':p.length===7?'month':'day'; // 기간 값이 어떤 단위인지
+const keyOf=(u,d)=>u==='all'?'all':u==='year'?d.slice(0,4):u==='month'?d.slice(0,7):u==='week'?weekKey(d):d; // 날짜 d 가 속한 그 단위의 기간 값
+// periodLabel = 기간 값을 사람이 읽는 글자로 (목록에 표시)
+function periodLabel(p){const u=unitOf(p);if(u==='all')return '전체 기간';if(u==='year')return p+'년';if(u==='month')return `${p.slice(0,4)}년 ${+p.slice(5)}월`;
+  if(u==='week'){const a=dOf(p.slice(1)),b=dOf(p.slice(1));b.setDate(b.getDate()+6);return `${a.getFullYear()}년 ${a.getMonth()+1}/${a.getDate()}(월) ~ ${b.getMonth()+1}/${b.getDate()}(일)`}
+  return longDate(p)}
+// selected = 저장된 일보를 날짜순으로 정렬하고, 고른 기간에 해당하는 일보만 골라냅니다. keys = 같은 단위에서 일보가 있는 기간들(◀ ▶ 와 목록에 사용)
+// 기간을 아직 고르지 않았으면 가장 최근 월을, 고른 기간에 일보가 없어졌으면 같은 단위의 가장 최근 기간을 잡습니다.
 function selected(){
-  const all=[...state.reports.entries()].sort((a,b)=>a[0]<b[0]?-1:1).map(([id,d])=>normalize(d,id));
-  const months=[...new Set(all.map(r=>r.date.slice(0,7)))],years=[...new Set(all.map(r=>r.date.slice(0,4)))];
-  if(state.period===null||(state.period!=='all'&&!months.includes(state.period)&&!years.includes(state.period)))state.period=months.length?months[months.length-1]:null; /* 일보가 아직 없으면 정하지 않는다 (불러온 뒤 최근 월로) */
-  const rs=!state.period||state.period==='all'?all:all.filter(r=>r.date.startsWith(state.period)); /* '2026' = 연도, '2026-01' = 월 */
-  return {all,months,years,rs};
+  const all=[...state.reports.entries()].sort((a,b)=>a[0]<b[0]?-1:1).map(([id,d])=>normalize(d,id)),dates=all.map(r=>r.date);
+  const keysFor=u=>u==='all'?['all']:[...new Set(dates.map(d=>keyOf(u,d)))];
+  let p=state.period;
+  if(!p||!keysFor(unitOf(p)).includes(p))p=state.period=dates.length?keyOf(p?unitOf(p):'month',dates[dates.length-1]):null; /* 일보가 아직 없으면 정하지 않는다 */
+  const unit=unitOf(p),rs=unit==='all'?all:all.filter(r=>keyOf(unit,r.date)===p);
+  return {all,rs,unit,keys:keysFor(unit)};
 }
+// setUnit = 단위 버튼(전체/연/월/주/일)을 눌렀을 때. 지금 보고 있던 기간의 마지막 날짜가 속한 기간으로 옮긴다
+function setUnit(u){const {all,rs}=selected(),last=(rs.length?rs:all).slice(-1)[0];state.period=u==='all'||!last?'all':keyOf(u,last.date);state.tblMode=null;state.anim=true;renderDash()}
+// stepPeriod = ◀ ▶ 버튼. 일보가 있는 이전/다음 기간으로 옮긴다
+function stepPeriod(n){const {keys}=selected(),i=keys.indexOf(state.period)+n;if(i<0||i>=keys.length)return;state.period=keys[i];state.tblMode=null;state.anim=true;renderDash()}
 // ★ renderDash = 분석 탭 전체를 다시 그립니다. 일보가 저장/삭제되거나 기간을 바꿀 때마다 실행됩니다.
-//   순서: 기간 목록 만들기 → 고른 기간의 일보마다 calc 실행 → 합계 내기 → 요약 숫자 카드 5개
-//         → 자동 분석 요약 문장 → 그래프 8개 → 실적표(일별 또는 월별) → CSV 내려받기용 내용 준비
+//   순서: 기간 줄 만들기 → 고른 기간의 일보마다 calc 실행 → 합계 내기 → 요약 숫자 카드 5개
+//         → 자동 분석 요약 문장 → 그래프들 → 실적표(일별 또는 월별) → CSV 내려받기용 내용 준비
 function renderDash(){
-  const {months,years,rs}=selected();
+  const {rs,unit,keys}=selected(),per=state.period||'all';
+  document.querySelectorAll('#unit-seg [data-unit]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.unit===unit));
   const sel=$('period');
-  sel.innerHTML='<option value="all">전체 기간</option>'+years.slice().reverse().map(y=>`<option value="${y}">${y}년 전체</option>`+months.filter(m=>m.startsWith(y)).reverse().map(m=>`<option value="${m}">${y}년 ${+m.slice(5)}월</option>`).join('')).join('');
-  sel.value=state.period||'all';
+  sel.innerHTML=keys.slice().reverse().map(k=>`<option value="${k}">${esc(periodLabel(k))}</option>`).join('')||'<option value="all">전체 기간</option>';
+  sel.value=per;sel.disabled=unit==='all';
+  const ki=keys.indexOf(per);$('p-prev').disabled=ki<=0;$('p-next').disabled=ki<0||ki>=keys.length-1;
   const nDraft=rs.filter(r=>r.draft).length;
-  $('period-info').textContent=rs.length?`일보 ${rs.length}건${nDraft?` (임시저장 ${nDraft}건 포함)`:''} · ${rs[0].date} ~ ${rs[rs.length-1].date}`:'';
+  $('period-info').textContent=rs.length?`일보 ${rs.length}건${nDraft?` (임시저장 ${nDraft}건 포함)`:''}${rs.length>1?` · ${rs[0].date} ~ ${rs[rs.length-1].date}`:''}`:'';
   const has=rs.length>0;
   $('dash-empty').hidden=has; $('dash-body').hidden=!has; $('csv').hidden=!has||!state.downloads;
   if(!has){$('dash-empty-msg').textContent=state.loaded?'아직 등록된 일보가 없습니다. ‘일보 등록’ 탭에서 첫 일보를 저장하면 여기에 분석이 표시됩니다.':'일보를 불러오는 중입니다…';return}
+  /* 애니메이션: 처음 열 때와 기간을 바꿀 때만 켠다. "동작 줄이기"를 켠 PC 에서는 하지 않는다 */
+  const anim=state.anim&&!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);state.anim=false;
+  if(anim){$('dash-body').classList.add('anim');clearTimeout(state.animT);state.animT=setTimeout(()=>$('dash-body').classList.remove('anim'),2600)}
   const cs=rs.map(r=>{try{return calc(r)}catch(e){return calc(blank(r.date))}}),days=cs.map(c=>c.date); /* 계산할 수 없는 일보는 빈 일보(전부 0)로 본다 */
   const S=k=>cs.reduce((s,c)=>s+n(c[k]),0);
   const total=S('total'),plan=S('plan'),defAsm=S('defAsm'),defQ=S('defQ'),defAssy=S('defAssy'),defChg=S('defChg'),mh=S('mhAsm'),charge=S('charge');
   const equip=S('equip'),mold=S('moldMin'),supply=S('supply'),idle=S('idle'),moldCnt=S('moldCnt');
   const gap=total-plan;
+  const cnt=(v,d)=>`<b class="cnt" data-v="${v}" data-d="${d||0}">${d?f1(v):f0(v)}</b>`; /* 0 에서 올라가는 숫자 */
   $('kpis').innerHTML=[
-    ['생산량',f0(total),'EA',plan?`계획 ${f0(plan)} · 달성률 ${pct(total/plan)} <span class="${gap>=0?'up':'down'}">${gap>=0?'▲ +':'▼ '}${f0(gap)}</span>`:'계획 수량 미입력'],
-    ['불량률',f0(total?defQ/total*1e6:0),'PPM',`불량 ${f0(defQ)} EA(충전 ${f0(defChg)} 포함) ÷ 생산량 · 조립 불량 ${f0(defAssy)} EA 제외`],
-    ['인시당 생산량',mh>0?f1(total/mh):'–','EA/인시',`완성 작업시간 ${f1(mh)} h · 일평균 재적 ${f1(S('headAsm')/cs.length)}명`],
-    ['손실 시간',f0(equip+mold+supply),'분',`설비부동 ${f0(equip)} · 금형교체 ${f0(mold)} · 공급지연 ${f0(supply)}`],
-    ['충전 수량',f0(charge),'EA',`충전 불량 ${f0(defChg)} EA${charge?' · '+f0(defChg/charge*1e6)+' ppm':''}`]
+    ['생산량',cnt(total),'EA',plan?`계획 ${f0(plan)} · 달성률 ${pct(total/plan)} <span class="${gap>=0?'up':'down'}">${gap>=0?'▲ +':'▼ '}${f0(gap)}</span>`:'계획 수량 미입력'],
+    ['불량률',cnt(Math.round(total?defQ/total*1e6:0)),'PPM',`불량 ${f0(defQ)} EA(충전 ${f0(defChg)} 포함) ÷ 생산량 · 조립 불량 ${f0(defAssy)} EA 제외`],
+    ['인시당 생산량',mh>0?cnt(total/mh,1):'–','EA/인시',`완성 작업시간 ${f1(mh)} h · 일평균 재적 ${f1(S('headAsm')/cs.length)}명`],
+    ['손실 시간',cnt(equip+mold+supply),'분',`설비부동 ${f0(equip)} · 금형교체 ${f0(mold)} · 공급지연 ${f0(supply)}`],
+    ['충전 수량',cnt(charge),'EA',`충전 불량 ${f0(defChg)} EA${charge?' · '+f0(defChg/charge*1e6)+' ppm':''}`]
   ].map(k=>`<div class="kpi"><span class="l">${k[0]}</span><span class="v">${k[1]}<span>${k[2]}</span></span><span class="s">${k[3]}</span></div>`).join('');
+  if(anim)countUp($('kpis'));
 
   const byLine={},hLine={},byCrew={},hCrew={},def={};
   LINES.forEach(l=>{byLine[l]=cs.reduce((s,c)=>s+c.byLine[l],0);hLine[l]=cs.reduce((s,c)=>s+c.hLine[l],0)});
@@ -570,10 +635,10 @@ function renderDash(){
   const ot=S('ot');if(ot>0)ins.push(`연장근로는 총 ${f1(ot)}시간으로 작업시간(완성+충전 ${f1(mh+S('mhChg'))}h)의 ${pct(ot/(mh+S('mhChg')),0)}입니다.`);
   $('insight').innerHTML=ins.map(t=>`<li>${esc(t)}</li>`).join('')||'<li>분석할 값이 아직 부족합니다.</li>';
 
-  $('lg-prod').innerHTML=LINES.map(l=>`<span><i style="background:var(${LINE_COLOR[l]})"></i>${l} LINE</span>`).join('')+'<span><i class="mk"></i>일 계획 수량</span>';
+  $('lg-prod').innerHTML=LINES.map(l=>`<span><i style="background:var(${LINE_COLOR[l]})"></i>${l} LINE</span>`).join('')+'<span><i class="mk"></i>일 계획 수량 (계단선)</span>';
   stackChart($('c-prod'),days,LINES.map(l=>({label:l+' LINE',color:LINE_COLOR[l],vals:cs.map(c=>c.byLine[l])})),{label:'계획',vals:cs.map(c=>c.plan)});
   const rd=[],rv=[],byDate=new Map(cs.map(c=>[c.date,c]));
-  for(const t=new Date(+days[0].slice(0,4),+days[0].slice(5,7)-1,+days[0].slice(8,10)),e=days[days.length-1];;t.setDate(t.getDate()+1)){const k=iso(t.getFullYear(),t.getMonth(),t.getDate());if(k>e)break;const c=byDate.get(k);rd.push(k);rv.push(c?c.rate*1e6:0)}
+  for(const t=dOf(days[0]),e=days[days.length-1];;t.setDate(t.getDate()+1)){const k=iso(t.getFullYear(),t.getMonth(),t.getDate());if(k>e)break;const c=byDate.get(k);rd.push(k);rv.push(c?c.rate*1e6:0)}
   lineChart($('c-rate'),rd,rv,f0,'--s1',' PPM');
   lineChart($('c-uph'),days,cs.map(c=>c.uph),v=>f1(v),'--s1',' EA/인시');
   hbars($('c-line'),LINES.map(l=>({label:l+' LINE',value:byLine[l],color:LINE_COLOR[l],sub:total?pct(byLine[l]/total,0):''})),f0,' EA');
@@ -591,31 +656,31 @@ function renderDash(){
   const sdv=[['D','주간','--s4'],['N','야간','--s7']].map(([k,l,col])=>{const d=cs.reduce((t,c)=>t+c.shiftDef[k].def,0),q=cs.reduce((t,c)=>t+c.shiftDef[k].q,0),dn=cs.reduce((t,c)=>t+c.shiftDef[k].days,0);return {label:l,value:q>0?d/q*1e6:NaN,color:col,sub:dn?`불량 ${f0(d)} EA · ${dn}일`:'근무조 미입력'}});
   if(sdv.some(x=>isFinite(x.value)&&x.value>0))hbars($('c-shiftdef'),sdv,f0,' PPM');
   else $('c-shiftdef').innerHTML=`<div class="empty" style="grid-column:1/-1">${sdv.some(x=>isFinite(x.value))?'집계된 기간에 불량이 없습니다 (0 PPM)':'근무조를 입력한 일보가 없습니다.'}</div>`;
+  $('p-loss').classList.toggle('wide',canPrivate()); /* 조별 생산량이 보이면 항목 수가 홀수라, 손실 시간을 한 줄 전체로 넓혀 빈 칸이 생기지 않게 한다 */
+  hbars($('c-loss'),loss.map(([k,v,sub])=>({label:k,value:v,sub:sub||''})),f0,'분');
+  /* 불량 유형: "전체" 칸은 항상, 조별 칸은 볼 수 있는 조만 보인다 (현장관리자 = 본인 조, 관리자·운영자 = 전부). 숨긴 칸은 자리를 차지하지 않아 나머지가 폭을 나눠 쓴다 */
   hbars($('c-def'),defRows.map(([k,v])=>({label:k,value:v,sub:pct(v/defAll,0)})),f0,' EA');
-  /* 조별 불량 유형: 볼 수 있는 조의 패널만 보이게 하고 그린다 (현장관리자 = 본인 조, 관리자·운영자 = 전부) */
   CREWS.forEach(k=>{const ok=canSeeCrew(k);$('p-ct-'+k).hidden=!ok;if(!ok){$('c-ct-'+k).innerHTML='';return}
     const t={};cs.forEach(c=>{for(const lb in c.crewDef[k].types)t[lb]=(t[lb]||0)+c.crewDef[k].types[lb]});
     const rows=Object.entries(t).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]),sum=rows.reduce((a,e)=>a+e[1],0);
     if(rows.length)hbars($('c-ct-'+k),rows.map(([lb,v])=>({label:lb,value:v,color:CREW_COLOR[k],sub:pct(v/sum,0)})),f0,' EA');
     else $('c-ct-'+k).innerHTML=`<div class="empty" style="grid-column:1/-1">${cs.some(c=>c.crewDef[k].days)?'이 기간에 기록된 불량이 없습니다':'이 기간에 '+k+'조 근무조가 입력된 일보가 없습니다'}</div>`});
-  hbars($('c-loss'),loss.map(([k,v,sub])=>({label:k,value:v,sub:sub||''})),f0,'분');
 
-  /* 실적표: 일별 또는 월별 합계. 기간이 한 달이면 일별, 연도·전체면 월별이 기본 */
-  const mode=state.tblMode||((state.period||'').length===7?'day':'month'),monthly=mode==='month';
+  /* 실적표: 일별 또는 월별 합계. 기간이 일·주·월이면 일별, 연·전체면 월별이 기본. 제목 아래 작은 글씨가 단위다 */
+  const mode=state.tblMode||(unit==='all'||unit==='year'?'month':'day'),monthly=mode==='month';
   $('tm-day').setAttribute('aria-pressed',!monthly);$('tm-month').setAttribute('aria-pressed',monthly);
   $('tbl-title').textContent=monthly?'월별 실적표':'일별 실적표';
-  $('tbl-cap').textContent=monthly?'‘일별 보기’를 누르면 그 달의 일별 실적이 열립니다':'‘수정’을 누르면 해당 일보가 입력 화면에 열립니다';
-  const A=list=>{const s=k=>list.reduce((t,c)=>t+n(c[k]),0);return {total:s('total'),plan:s('plan'),defQ:s('defQ'),defAssy:s('defAssy'),mh:s('mhAsm'),equip:s('equip'),moldCnt:s('moldCnt'),moldMin:s('moldMin'),supply:s('supply'),charge:s('charge'),cover:s('cover')}};
-  const vals=a=>[f0(a.total),a.plan?f0(a.plan):'–',a.plan?pct(a.total/a.plan):'–',f0(a.defQ),f0(a.defAssy),f0(a.total?a.defQ/a.total*1e6:0),f1(a.mh),a.mh>0?f1(a.total/a.mh):'–',f0(a.equip),a.moldCnt+'회 / '+f0(a.moldMin)+'분',f0(a.supply),f0(a.charge),f0(a.cover)];
+  const A=list=>{const s=k=>list.reduce((t,c)=>t+n(c[k]),0);return {total:s('total'),plan:s('plan'),defQ:s('defQ'),defAssy:s('defAssy'),equip:s('equip'),moldCnt:s('moldCnt'),moldMin:s('moldMin'),supply:s('supply'),charge:s('charge'),cover:s('cover')}};
+  const vals=a=>[f0(a.total),a.plan?f0(a.plan):'–',a.plan?(a.total/a.plan*100).toFixed(1):'–',f0(a.defQ),f0(a.defAssy),f0(a.total?a.defQ/a.total*1e6:0),f0(a.equip),a.moldCnt+' / '+f0(a.moldMin),f0(a.supply),f0(a.charge),f0(a.cover)];
   const tds=a=>vals(a).map((v,i)=>`<td${i===2&&a.plan?` class="${a.total>=a.plan?'up':'down'}"`:''}>${v}</td>`).join('');
-  const cols=[monthly?'월':'날짜','생산량','계획','달성률','불량','조립 불량(제외)','불량(ppm)','작업시간','인시당','설비부동(분)','금형교체','공급지연(분)','충전수량','카바불량',monthly?'일보 수':'작성자',''];
+  const cols=[[monthly?'월':'날짜',''],['생산량','EA'],['계획','EA'],['달성률','%'],['불량','EA'],['조립 불량','제외 · EA'],['불량률','PPM'],['설비부동','분'],['금형교체','회 / 분'],['공급지연','분'],['충전수량','EA'],['카바불량','EA'],monthly?['일보 수','건']:['작성자','야간조'],['','']];
   let rows;
   if(monthly){const g=new Map();cs.forEach(c=>{const k=c.date.slice(0,7);g.set(k,(g.get(k)||[]).concat(c))});
-    rows=[...g.entries()].reverse().map(([k,list])=>({label:`${k.slice(0,4)}년 ${+k.slice(5)}월`,a:A(list),last:list.length+'건',act:`<button type="button" class="btn sm" data-month="${k}">일별 보기</button>`}))}
+    rows=[...g.entries()].reverse().map(([k,list])=>({label:`${k.slice(0,4)}년 ${+k.slice(5)}월`,a:A(list),last:String(list.length),act:`<button type="button" class="btn sm" data-month="${k}">일별 보기</button>`}))}
   else rows=cs.slice().reverse().map(c=>({label:c.date,a:A([c]),last:writer(c.date),act:state.confirmDel===c.date?`<button type="button" class="btn sm danger" data-del2="${c.date}">삭제 확인</button><button type="button" class="btn sm" data-cancel="1">취소</button>`:`<button type="button" class="btn sm" data-edit="${c.date}">수정</button>${canDel()?`<button type="button" class="btn sm danger" data-del="${c.date}">삭제</button>`:''}`}));
-  $('tbl').innerHTML='<thead><tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr></thead><tbody>'+rows.map(r=>`<tr><td>${r.label}</td>${tds(r.a)}<td>${esc(r.last)}</td><td><span class="act">${r.act}</span></td></tr>`).join('')+
-    `</tbody><tfoot><tr><td>합계</td>${tds(A(cs))}<td>${monthly?cs.length+'건':''}</td><td></td></tr></tfoot>`;
-  state.csv=[cols.slice(0,-1).join(',')].concat(rows.slice().reverse().map(r=>[r.label,...vals(r.a).map(v=>'"'+v+'"'),r.last].join(','))).join('\r\n');
+  $('tbl').innerHTML='<thead><tr>'+cols.map(([c,u])=>`<th>${c}${u?`<small>${u}</small>`:''}</th>`).join('')+'</tr></thead><tbody>'+rows.map(r=>`<tr><td>${r.label}</td>${tds(r.a)}<td>${esc(r.last)}</td><td><span class="act">${r.act}</span></td></tr>`).join('')+
+    `</tbody><tfoot><tr><td>합계</td>${tds(A(cs))}<td>${monthly?cs.length:''}</td><td></td></tr></tfoot>`;
+  state.csv=[cols.slice(0,-1).map(([c,u])=>c+(u?' ('+u+')':'')).join(',')].concat(rows.slice().reverse().map(r=>[r.label,...vals(r.a).map(v=>'"'+v+'"'),r.last].join(','))).join('\r\n');
 }
 
 /* ---------- form (엑셀 작업일보 양식) ---------- */
@@ -876,7 +941,7 @@ function drawPop(){
     let ys='';for(let i=Math.max(cy+1,y);i>=Math.min(2010,y);i--)ys+=`<option value="${i}"${i===y?' selected':''}>${i}년</option>`;
     let ms='';for(let i=0;i<12;i++)ms+=`<option value="${i}"${i===m?' selected':''}>${i+1}월</option>`;
     let g='일월화수목금토'.split('').map(w=>`<span>${w}</span>`).join('')+'<span></span>'.repeat(first);
-    for(let d=1;d<=days;d++){const v=iso(y,m,d);g+=`<button type="button" data-day="${v}" class="${v===form.date?'on ':''}${v===td?'today ':''}${state.reports.has(v)?'has':''}"${state.reports.has(v)?' title="저장된 일보 있음"':''}>${d}</button>`}
+    for(let d=1;d<=days;d++){const v=iso(y,m,d);g+=`<button type="button" data-day="${v}" class="${v===form.date?'on ':''}${v===td?'today ':''}${state.reports.has(v)?'has':''}">${d}</button>`}
     pop.innerHTML=`<div class="dp-h"><button type="button" class="btn sm" data-nav="-1" aria-label="이전 달">◀</button><select id="dp-y" aria-label="연도">${ys}</select><select id="dp-m" aria-label="월">${ms}</select><button type="button" class="btn sm" data-nav="1" aria-label="다음 달">▶</button></div><div class="dp-g">${g}</div><div class="pf"><span class="cap">점 표시 = 저장된 일보</span><span><button type="button" class="btn sm" data-day="${td}">오늘</button> <button type="button" class="btn sm" data-close="1">닫기</button></span></div>`;
   }else if(popKind==='time'){
     let hs='';for(let h=1;h<=12;h++)hs+=`<button type="button" class="tg" data-h="${h}" aria-pressed="${tp.h===h}">${p2(h)}</button>`;
@@ -914,6 +979,51 @@ document.addEventListener('pointerdown',e=>{if(!pop.hidden&&!pop.contains(e.targ
 // Esc 키를 누르면 창을 닫습니다.
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!pop.hidden)closePop()});
 
+/* ---------- 버튼 설명 ---------- */
+// 버튼에 마우스를 올리면(또는 Tab 키로 옮겨 가면) "누르면 무슨 일이 일어나는지"가 그래프와 같은 검은 말풍선으로 바로 뜹니다.
+// btnTip(버튼) = 그 버튼의 설명 문구를 돌려준다. 버튼의 이름표(id)나 data-... 값으로 어떤 버튼인지 구분한다.
+const TIP_ID={
+  'tab-dash':'분석 화면을 엽니다','tab-input':'일보를 작성하고 수정하는 화면을 엽니다','tab-users':'사번 등록과 권한을 관리하는 화면을 엽니다 (운영자 전용)',
+  'pw-open':'비밀번호 변경 칸을 열거나 닫습니다','pw-cancel':'비밀번호 변경을 취소하고 칸을 닫습니다','logout':'로그아웃하고 로그인 화면으로 돌아갑니다',
+  'p-prev':'일보가 있는 이전 기간으로 이동합니다','p-next':'일보가 있는 다음 기간으로 이동합니다','csv':'지금 보이는 실적표를 CSV 파일로 내려받습니다',
+  'tm-day':'실적표를 날짜별로 보여 줍니다','tm-month':'실적표를 월 합계로 보여 줍니다',
+  'save':'입력한 일보를 저장합니다. 임시저장 표시가 사라지고 화면은 그대로 유지됩니다','save-draft':'작성 중인 상태로 저장합니다. 화면은 그대로 유지되어 이어서 작성할 수 있습니다',
+  'f-date':'작업일을 고르는 달력을 엽니다. 날짜를 누르면 그 날짜의 일보가 열립니다'};
+const TIP_UNIT={all:'전체 기간을 한꺼번에 봅니다',year:'연 단위로 봅니다',month:'월 단위로 봅니다',week:'주 단위(월요일~일요일)로 봅니다',day:'하루 단위로 봅니다'};
+const TIP_UA={pw:'새 비밀번호를 입력하는 칸을 엽니다',pwok:'입력한 새 비밀번호로 바꿉니다. 그 사용자는 다시 로그인해야 합니다',cancel:'하던 작업을 취소합니다',
+  toggle:'이 사번의 로그인을 막거나 다시 허용합니다. 일보와 계정은 지워지지 않습니다',del:'삭제 확인 버튼으로 바뀝니다. 아직 삭제되지 않습니다',delok:'이 사번을 실제로 삭제합니다. 되돌릴 수 없습니다'};
+function btnTip(b){
+  const d=b.dataset;
+  if(b.id&&TIP_ID[b.id])return TIP_ID[b.id];
+  if(b.id==='auth-go')return authMode==='setup'?'입력한 사번과 비밀번호로 운영자 계정을 만들고 바로 들어갑니다':'입력한 사번과 비밀번호로 로그인합니다';
+  if(b.matches('label[for="xl"]'))return '엑셀 파일을 고르는 창을 엽니다. 고른 파일의 내용이 등록 화면에 채워집니다';
+  if(d.unit)return TIP_UNIT[d.unit];
+  if(d.edit)return d.edit+' 일보를 등록 화면에서 엽니다';
+  if(d.del)return '삭제 확인 버튼으로 바뀝니다. 아직 삭제되지 않습니다';
+  if(d.del2)return d.del2+' 일보를 실제로 삭제합니다. 되돌릴 수 없습니다';
+  if(d.cancel)return '삭제를 취소합니다';
+  if(d.month)return '그 달의 일별 실적표로 이동합니다';
+  if(d.pop==='time')return (d.f==='start'?'발생':'완료')+' 시간을 고르는 창을 엽니다';
+  if(d.add==='equip')return '설비부동을 적을 줄을 하나 추가합니다';
+  if(d.add==='idle')return '인원 부동 · 파견을 적을 줄을 하나 추가합니다';
+  if(d.rm)return '이 줄을 삭제합니다';
+  if(d.nav)return d.nav==='-1'?'이전 달을 보여 줍니다':'다음 달을 보여 줍니다';
+  if(d.day)return (b.textContent.trim()==='오늘'?'오늘 날짜':d.day)+'의 일보를 엽니다'+(state.reports.has(d.day)?' (저장된 일보 있음)':'');
+  if(d.close)return '달력을 닫습니다';
+  if(d.ap)return d.ap==='AM'?'오전으로 정합니다':'오후로 정합니다';
+  if(d.h)return d.h+'시로 정합니다';
+  if(d.tok)return '선택한 시간을 입력하고 창을 닫습니다. 발생·완료가 모두 있으면 부동(분)이 자동 계산됩니다';
+  if(d.tclear)return '입력된 시간을 지웁니다';
+  if(d.open)return '이 시트의 내용을 등록 화면에 채웁니다. 저장은 따로 눌러야 합니다';
+  if(d.saveall)return '목록의 모든 날짜를 한꺼번에 저장합니다. 이미 저장된 날짜가 있으면 한 번 더 확인합니다';
+  if(d.impclose)return '엑셀 불러오기 상자를 닫습니다. 이미 저장한 일보는 그대로 남습니다';
+  if(d.ua)return TIP_UA[d.ua]||'';
+  if(b.closest('#u-add'))return '입력한 사번을 새 사용자로 등록합니다';
+  if(b.closest('#pw-box'))return '현재 비밀번호를 확인한 뒤 새 비밀번호로 바꿉니다';
+  return '';
+}
+// 말풍선을 띄우는 일은 아래 [9. 탭 전환과 공통 기능]의 tipAt 이 맡는다. 나중에 새로 만들어지는 버튼(표 안의 수정/삭제 등)에도 그대로 적용된다
+
 /* ---------- shell ---------- */
 // [9. 탭 전환과 공통 기능]
 // show = 탭(분석 / 일보 등록 / 사용자 관리) 중 하나만 보이게 하고 나머지는 숨깁니다. 사용자 관리는 운영자만 열 수 있습니다.
@@ -921,7 +1031,8 @@ function show(tab){
   const v=tab==='input'?'input':tab==='users'&&srv.user&&srv.user.role==='admin'?'users':'dash';
   ['dash','input','users'].forEach(k=>{$('view-'+k).hidden=k!==v;$('tab-'+k).setAttribute('aria-selected',k===v)});
   $('view-auth').hidden=true;$('tabs').hidden=false;closePop();
-  if(v==='dash')renderDash();if(v==='users')loadUsers();
+  document.querySelector('.wrap').classList.toggle('dash-on',v==='dash');setHH(); /* 분석 탭에서만 제목 줄을 위에 고정 */
+  if(v==='dash'){state.anim=true;renderDash()}if(v==='users')loadUsers();
 }
 // 탭 버튼을 누르면 show 를 실행합니다.
 ['dash','input','users'].forEach(k=>{$('tab-'+k).onclick=()=>{location.hash=k;show(k)}});
@@ -929,13 +1040,17 @@ function show(tab){
 $('tm-day').onclick=()=>{state.tblMode='day';renderDash()};
 $('tm-month').onclick=()=>{state.tblMode='month';renderDash()};
 // 기간 선택을 바꾸면 분석 탭을 다시 그립니다.
-$('period').onchange=e=>{state.period=e.target.value;state.tblMode=null;renderDash()};
+$('period').onchange=e=>{state.period=e.target.value;state.tblMode=null;state.anim=true;renderDash()};
+$('unit-seg').addEventListener('click',e=>{const b=e.target.closest('[data-unit]');if(b)setUnit(b.dataset.unit)});
+$('p-prev').onclick=()=>stepPeriod(-1);$('p-next').onclick=()=>stepPeriod(1);
+// setHH = 제목 줄의 높이를 재서 기간 줄이 그 바로 아래에 고정되게 한다
+function setHH(){document.documentElement.style.setProperty('--hh',document.querySelector('header').offsetHeight+'px')}
 // [실적표의 버튼] 수정 = 그 날짜 일보를 입력 화면에 열기, 일별 보기 = 그 달의 일별 표로 이동,
 // 삭제 = 먼저 "삭제 확인/취소"로 바꾸고, 확인을 누르면 실제로 삭제합니다.
 $('tbl').addEventListener('click',async e=>{
   const b=e.target.closest('button');if(!b)return;
   if(b.dataset.edit){loadForm(b.dataset.edit);location.hash='input';show('input');window.scrollTo(0,0)}
-  else if(b.dataset.month){state.period=b.dataset.month;state.tblMode='day';renderDash()}
+  else if(b.dataset.month){state.period=b.dataset.month;state.tblMode='day';state.anim=true;renderDash();$('pbar').scrollIntoView({block:'start'})}
   else if(b.dataset.del){state.confirmDel=b.dataset.del;renderDash()}
   else if(b.dataset.cancel){state.confirmDel=null;renderDash()}
   else if(b.dataset.del2){state.confirmDel=null;try{await state.db.doc('reports/'+b.dataset.del2).delete()}catch(err){notice(err&&err.rest?err.message:'삭제하지 못했습니다. 권한을 확인하세요.')}}
@@ -946,16 +1061,29 @@ $('csv').onclick=async()=>{try{await state.downloads.save({filename:'작업일�
 function notice(t){const el=$('notice');el.textContent=t;el.hidden=!t}
 // tipAt = 그래프 위에서 마우스를 움직이면 말풍선을 마우스 옆에 띄웁니다.
 const tip=$('tip');
-function tipAt(e){const t=e.target.closest&&e.target.closest('[data-tip]');if(!t){tip.hidden=true;return}tip.textContent=t.dataset.tip;tip.hidden=false;const w=tip.offsetWidth,h=tip.offsetHeight;tip.style.left=Math.max(8,Math.min(e.clientX+14,innerWidth-w-8))+'px';tip.style.top=Math.max(8,e.clientY-h-12)+'px'}
+// tipText = 마우스가 올라간 곳에 띄울 글. 그래프(data-tip 이 붙은 곳)면 그 값, 버튼이면 btnTip 의 설명
+function tipText(el){if(!el||!el.closest)return '';const t=el.closest('[data-tip]');if(t)return t.dataset.tip;const b=el.closest('button,label.btn');return b?btnTip(b):''}
+// placeTip = 말풍선을 (x, y) 근처에 놓는다. 보통은 위쪽에, 위에 자리가 없으면(화면 맨 위의 버튼 등) 아래쪽에 놓는다
+function placeTip(x,y){tip.style.left='0px';const w=tip.offsetWidth,h=tip.offsetHeight; /* 왼쪽 끝에 놓고 크기를 잰다 (오른쪽 끝에서는 글이 접혀 크기가 달라지므로) */tip.style.left=Math.max(8,Math.min(x+14,document.documentElement.clientWidth-w-8))+'px';tip.style.top=(y-h-12>=8?y-h-12:Math.min(y+22,innerHeight-h-8))+'px'}
+function tipAt(e){const tx=tipText(e.target);if(!tx){tip.hidden=true;return}tip.textContent=tx;tip.hidden=false;
+  const b=!e.target.closest('[data-tip]')&&e.target.closest('button,label.btn');
+  if(!b){placeTip(e.clientX,e.clientY);return} /* 그래프: 마우스를 따라다닌다 */
+  /* 버튼: 버튼을 가리지 않도록 버튼 바로 위(자리가 없으면 바로 아래)에 놓는다 */
+  tip.style.left='0px';const r=b.getBoundingClientRect(),h=tip.offsetHeight,w=tip.offsetWidth;tip.style.left=Math.max(8,Math.min(e.clientX-12,document.documentElement.clientWidth-w-8))+'px';tip.style.top=(r.top-h-6>=8?r.top-h-6:Math.min(r.bottom+6,innerHeight-h-8))+'px'}
+// 버튼을 누른 뒤에는 말풍선을 숨긴다 (누르면 화면이 바뀌어 버튼이 사라지는 경우가 많다)
+document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('button,label.btn'))tip.hidden=true});
+// 키보드(Tab)로 버튼에 옮겨 갔을 때는 버튼 바로 아래에 말풍선을 띄운다
+document.addEventListener('focusin',e=>{const b=e.target.closest&&e.target.closest('button,label.btn');if(!b||!b.matches(':focus-visible'))return;const tx=btnTip(b);if(!tx)return;const r=b.getBoundingClientRect();tip.textContent=tx;tip.hidden=false;tip.style.left='0px';const w=tip.offsetWidth,h=tip.offsetHeight;tip.style.left=Math.max(8,Math.min(r.left,document.documentElement.clientWidth-w-8))+'px';tip.style.top=Math.min(r.bottom+8,innerHeight-h-8)+'px'});
+document.addEventListener('focusout',()=>{tip.hidden=true});
 document.addEventListener('pointermove',tipAt);document.addEventListener('pointerdown',tipAt);
 // 창 크기를 바꾸면 그래프를 새 너비에 맞춰 다시 그립니다.
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(!$('view-dash').hidden)renderDash()},150)});
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{setHH();if(!$('view-dash').hidden)renderDash()},150)});
 
 // ★ subscribe = 저장소의 일보 목록을 받아 오고, 이후 바뀔 때마다 화면을 자동으로 새로 고치도록 연결합니다.
 function subscribe(db){
   db.collection('reports').limit(1000).onSnapshot(snap=>{
     state.reports=new Map(snap.docs.map(d=>[d.id,d.data()]));
-    const first=!state.loaded;state.loaded=true;
+    const first=!state.loaded;state.loaded=true;if(first)state.anim=true;
     if(first&&!dirty)loadForm(form.date);else updateOut();
     if(!$('view-dash').hidden)renderDash();
     if(imp)renderImp();
@@ -1012,7 +1140,7 @@ function enter(user){
   srv.user=user;state.readOnly=false;
   $('who').hidden=false;$('who-name').innerHTML=`<b>${esc(user.name)}</b> (${esc(user.id)}) · ${ROLE[user.role]||''}${user.crew?' · '+esc(user.crew)+'조':''}`;
   $('tab-users').hidden=user.role!=='admin';
-  state.db=restDb();show(location.hash.slice(1));updateOut();subscribe(state.db);
+  state.db=restDb();show(location.hash.slice(1));updateOut();loadCrews().then(()=>subscribe(state.db)); /* 조별 이름표를 먼저 받은 뒤 일보를 받아 온다 (화면을 두 번 그려 숫자 애니메이션이 중간에 끊기는 것을 막는다) */
 }
 // 로그아웃 / 비밀번호 변경 상자 열고 닫기
 $('logout').onclick=async()=>{try{await api('POST','/api/logout',{})}catch(e){}location.reload()};
@@ -1029,7 +1157,7 @@ $('pw-box').addEventListener('submit',async e=>{
 // users = 서버에서 받아 온 사용자 목록, uEdit = 지금 비밀번호 초기화/삭제 확인 중인 사번
 let users=[],uEdit=null;
 // loadUsers = 서버에서 사용자 목록을 받아 와 표를 그립니다.
-async function loadUsers(){try{users=(await api('GET','/api/users')).users}catch(e){$('u-msg').textContent=e.message}renderUsers()}
+async function loadUsers(){try{users=(await api('GET','/api/users')).users}catch(e){$('u-msg').textContent=e.message}renderUsers();loadCrews()}
 // renderUsers = 사용자 목록 표를 그립니다. 본인 줄에는 "나" 표시가 붙고, 본인은 사용 중지/삭제할 수 없습니다.
 function renderUsers(){
   $('u-tbl').innerHTML='<thead><tr><th>사번</th><th>이름</th><th>권한</th><th>소속 조</th><th>상태</th><th>등록일</th><th></th></tr></thead><tbody>'+users.map(u=>{

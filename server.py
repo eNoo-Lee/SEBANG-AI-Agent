@@ -15,7 +15,8 @@
 
 저장 구조 (data 폴더):
     users.json                 사용자 (비밀번호는 해시로만 저장)
-    reports/2026-01-31.json    하루 일보 1개 = 파일 1개
+    reports/2026-01-31.json    2T4P(4파트) 하루 일보 1개 = 파일 1개
+    reports-p1/, reports-p2/, reports-p3/   1·2·3파트 일보 (같은 방식)
     history/                   덮어쓰거나 삭제하기 직전의 일보 사본
 """
 # --- 필요한 도구 불러오기 (모두 파이썬에 기본으로 들어 있어 따로 설치할 것이 없습니다) ---
@@ -58,6 +59,9 @@ MAX_BODY = 512 * 1024
 SESSION_TTL = 12 * 3600
 PBKDF2_ROUNDS = 200_000
 MIN_PW = 6
+# 일보 저장 폴더(이름) → 파트. 4파트는 예전부터 쓰던 'reports' 폴더를 그대로 쓴다
+COLLS = {"reports": "p4", "reports-p1": "p1", "reports-p2": "p2", "reports-p3": "p3"}
+PARTS = ("p1", "p2", "p3", "p4")
 
 
 # 현재 시각을 2026-01-31T14:05:00 모양의 글자로 만듭니다(저장 시각 기록용).
@@ -88,21 +92,23 @@ class Store:
     # 서버가 켜질 때 한 번 실행: data 폴더(없으면 만듦)에서 사용자와 일보를 모두 읽어 기억해 둡니다.
     def __init__(self, data_dir):
         self.dir = data_dir
-        self.reports_dir = os.path.join(data_dir, "reports")
         self.history_dir = os.path.join(data_dir, "history")
         self.users_file = os.path.join(data_dir, "users.json")
-        for d in (self.reports_dir, self.history_dir):
-            os.makedirs(d, exist_ok=True)
+        os.makedirs(self.history_dir, exist_ok=True)
         self.lock = threading.RLock()
-        self.rev = int(time.time())  # 일보가 바뀔 때마다 증가. 화면은 이 값이 바뀌었을 때만 다시 받는다
         self.users = self._read(self.users_file, {})
-        self.reports = {}
-        for name in sorted(os.listdir(self.reports_dir)):
-            key = name[:-5]
-            if name.endswith(".json") and DATE_RE.match(key):
-                doc = self._read(os.path.join(self.reports_dir, name), None)
-                if isinstance(doc, dict):
-                    self.reports[key] = doc
+        # 파트별 일보: reports[저장 폴더 이름][날짜] = 일보,  rev[저장 폴더 이름] = 일보가 바뀔 때마다 증가하는 번호
+        self.reports, self.rev = {}, {}
+        for coll in COLLS:
+            folder = os.path.join(data_dir, coll)
+            os.makedirs(folder, exist_ok=True)
+            self.reports[coll], self.rev[coll] = {}, int(time.time())
+            for name in sorted(os.listdir(folder)):
+                key = name[:-5]
+                if name.endswith(".json") and DATE_RE.match(key):
+                    doc = self._read(os.path.join(folder, name), None)
+                    if isinstance(doc, dict):
+                        self.reports[coll][key] = doc
         self.sessions = {}
         self.fails = {}
 
@@ -130,34 +136,36 @@ class Store:
 
     # ----- 일보 -----
     # 일보를 덮어쓰거나 지우기 직전에, 원래 내용을 history 폴더에 사본으로 남깁니다(실수했을 때 복구용).
-    def _keep_history(self, date):
-        old = self.reports.get(date)
+    def _keep_history(self, coll, date):
+        old = self.reports[coll].get(date)
         if old is not None:
-            self._write(os.path.join(self.history_dir, "%s_%s.json" % (date, time.strftime("%Y%m%d-%H%M%S"))), old)
+            prefix = "" if coll == "reports" else COLLS[coll] + "_"  # 4파트는 예전과 같은 이름, 다른 파트는 앞에 p1_ 등을 붙인다
+            self._write(os.path.join(self.history_dir, "%s%s_%s.json" % (prefix, date, time.strftime("%Y%m%d-%H%M%S"))), old)
 
     # 일보 저장: 사본 남기기 → 날짜, 저장 시각, 저장한 사람 기록 → reports/날짜.json 파일로 쓰기 → 변경 번호(rev) 올리기
-    def put_report(self, date, doc, user):
+    def put_report(self, coll, date, doc, user):
         with self.lock:
-            self._keep_history(date)
+            self._keep_history(coll, date)
             doc["date"] = date
+            doc["part"] = COLLS[coll]
             doc["updatedAt"] = now_iso()
             doc["updatedBy"] = {"id": user["id"], "name": user["name"]}
-            self._write(os.path.join(self.reports_dir, date + ".json"), doc)
-            self.reports[date] = doc
-            self.rev += 1
+            self._write(os.path.join(self.dir, coll, date + ".json"), doc)
+            self.reports[coll][date] = doc
+            self.rev[coll] += 1
 
     # 일보 삭제: 사본을 남긴 뒤 파일을 지웁니다.
-    def delete_report(self, date):
+    def delete_report(self, coll, date):
         with self.lock:
-            if date not in self.reports:
+            if date not in self.reports[coll]:
                 return
-            self._keep_history(date)
+            self._keep_history(coll, date)
             try:
-                os.remove(os.path.join(self.reports_dir, date + ".json"))
+                os.remove(os.path.join(self.dir, coll, date + ".json"))
             except FileNotFoundError:
                 pass
-            del self.reports[date]
-            self.rev += 1
+            del self.reports[coll][date]
+            self.rev[coll] += 1
 
     # ----- 사용자 -----
     # 사용자 목록을 users.json 파일에 씁니다.
@@ -168,13 +176,14 @@ class Store:
     def public_user(self, uid):
         u = self.users[uid]
         return {"id": uid, "name": u["name"], "role": u["role"], "active": u.get("active", True), "created": u.get("created", ""),
-                "crew": u.get("crew", "")}  # crew = 소속 조 (A/B/C, 없으면 빈 값)
+                "crew": u.get("crew", ""),  # crew = 소속 조 (A/B/C, 없으면 빈 값)
+                "part": u.get("part") or ("p4" if u["role"] == "user" else "")}  # part = 소속 파트. 예전 현장관리자는 4파트
 
     # 새 사용자를 등록합니다. role 은 admin(운영자), manager(관리자), user(현장관리자) 중 하나. 운영자만 사용자 관리와 일보 삭제를 할 수 있습니다.
-    def set_user(self, uid, name, password, role, crew=""):
+    def set_user(self, uid, name, password, role, crew="", part=""):
         salt = secrets.token_hex(16)
         self.users[uid] = {"name": name, "role": role, "salt": salt, "hash": hash_pw(password, salt),
-                           "active": True, "created": now_iso(), "crew": crew}
+                           "active": True, "created": now_iso(), "crew": crew, "part": part}
         self._save_users()
 
     # 비밀번호를 바꿉니다(새 salt 로 다시 암호화).
@@ -372,32 +381,35 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"ok": True})
 
         # GET /api/reports : 일보 전체 받기(로그인 필요). 화면이 가진 변경 번호(rev)와 같으면 "바뀐 것 없음"만 답함
-        if p == ["reports"] and m == "GET":
-            self.need_user()
-            if query.get("rev", [""])[0] == str(st.rev):
-                return self.send_json({"rev": st.rev, "unchanged": True})
-            return self.send_json({"rev": st.rev, "reports": st.reports})
+        if len(p) == 1 and p[0] in COLLS and m == "GET":
+            coll = p[0]
+            self.check_part(self.need_user(), coll)
+            if query.get("rev", [""])[0] == str(st.rev[coll]):
+                return self.send_json({"rev": st.rev[coll], "unchanged": True})
+            return self.send_json({"rev": st.rev[coll], "reports": st.reports[coll]})
 
         # PUT /api/reports/날짜 : 일보 저장(로그인한 누구나),  DELETE /api/reports/날짜 : 일보 삭제(운영자만)
-        if len(p) == 2 and p[0] == "reports" and m in ("PUT", "DELETE"):
+        if len(p) == 2 and p[0] in COLLS and m in ("PUT", "DELETE"):
+            coll = p[0]
             if not DATE_RE.match(p[1]):
                 raise ApiError(400, "날짜 형식이 맞지 않습니다.")
             if m == "PUT":
                 user = self.need_user()
-                st.put_report(p[1], self.body(), user)
+                self.check_part(user, coll)
+                st.put_report(coll, p[1], self.body(), user)
             else:
                 self.need_user(admin=True)
-                st.delete_report(p[1])
-            return self.send_json({"ok": True, "rev": st.rev})
+                st.delete_report(coll, p[1])
+            return self.send_json({"ok": True, "rev": st.rev[coll]})
 
         # GET /api/crews : 조별 현장관리자 이름 (로그인한 누구나). 실적표의 "작성자(야간조)" 표시에 쓴다. 이름만 보내고 사번은 보내지 않는다
         if p == ["crews"] and m == "GET":
             self.need_user()
-            crews = {"A": [], "B": [], "C": []}
+            crews = {pt: {"A": [], "B": [], "C": []} for pt in PARTS}  # 파트 → 조 → 현장관리자 이름들
             for uid in sorted(st.users):
                 u = st.users[uid]
-                if u["role"] == "user" and u.get("active", True) and u.get("crew") in crews:
-                    crews[u["crew"]].append(u["name"])
+                if u["role"] == "user" and u.get("active", True) and u.get("crew") in ("A", "B", "C"):
+                    crews[u.get("part") or "p4"][u["crew"]].append(u["name"])
             return self.send_json({"crews": crews})
 
         # GET /api/users : 사용자 목록(운영자만)
@@ -412,10 +424,12 @@ class Handler(BaseHTTPRequestHandler):
             uid = self.clean_id(b.get("id"))
             if uid in st.users:
                 raise ApiError(409, "이미 등록된 사번입니다.")
-            role, crew = self.clean_role(b.get("role")), self.clean_crew(b.get("crew", ""))
+            role, crew, part = self.clean_role(b.get("role")), self.clean_crew(b.get("crew", "")), self.clean_part(b.get("part", ""))
+            if role == "user" and not part:  # 현장관리자는 소속 파트의 일보만 작성 · 열람한다
+                raise ApiError(400, "현장관리자는 소속 파트를 선택해야 합니다.")
             if role == "user" and not crew:  # 현장관리자는 소속 조가 있어야 본인 조의 불량 유형을 볼 수 있다
                 raise ApiError(400, "현장관리자는 소속 조를 선택해야 합니다.")
-            st.set_user(uid, self.clean_name(b.get("name")), self.clean_pw(b.get("password")), role, crew)
+            st.set_user(uid, self.clean_name(b.get("name")), self.clean_pw(b.get("password")), role, crew, part)
             return self.send_json({"ok": True})
 
         # POST /api/users/사번 : 이름, 권한, 사용 여부, 비밀번호 바꾸기,  DELETE /api/users/사번 : 사용자 삭제 (둘 다 운영자만)
@@ -440,6 +454,8 @@ class Handler(BaseHTTPRequestHandler):
                 u["name"] = self.clean_name(b["name"])
             if "crew" in b:
                 u["crew"] = self.clean_crew(b["crew"])
+            if "part" in b:
+                u["part"] = self.clean_part(b["part"])
             if "role" in b or "active" in b:
                 role = self.clean_role(b.get("role", u["role"]))
                 active = bool(b.get("active", u.get("active", True)))
@@ -459,6 +475,12 @@ class Handler(BaseHTTPRequestHandler):
 
     # 로그인 성공 처리: 출입증을 만들어 브라우저 쿠키에 심습니다.
     # HttpOnly = 화면의 스크립트가 출입증을 읽지 못하게 함, SameSite=Strict = 다른 사이트에서 이 출입증을 몰래 쓰지 못하게 함
+    @staticmethod
+    def check_part(user, coll):
+        # 현장관리자는 본인 소속 파트의 일보만 보고 저장할 수 있다. 관리자 · 운영자는 모든 파트
+        if user["role"] == "user" and (user.get("part") or "p4") != COLLS[coll]:
+            raise ApiError(403, "다른 파트의 일보는 볼 수 없습니다.")
+
     def login_ok(self, uid):
         token = self.store.new_session(uid)
         self.send_json({"user": self.store.public_user(uid)},
@@ -493,6 +515,14 @@ class Handler(BaseHTTPRequestHandler):
         return v
 
     @staticmethod
+    def clean_part(v):
+        # 소속 파트는 p1~p4 또는 빈 값(없음)만 받는다
+        v = str(v or "").strip()
+        if v not in ("",) + PARTS:
+            raise ApiError(400, "소속 파트 값이 맞지 않습니다.")
+        return v
+
+    @staticmethod
     def clean_crew(v):
         # 소속 조는 A, B, C 또는 빈 값(없음)만 받는다
         v = str(v or "").strip().upper()
@@ -516,7 +546,7 @@ def main():
     Handler.store = Store(os.path.abspath(args.data))
     httpd = ThreadingHTTPServer((args.host, args.port), Handler)
     print("2T4P 작업일보 서버 실행 중 - 포트 %d" % args.port)
-    print("데이터 폴더: %s (일보 %d건, 사용자 %d명)" % (Handler.store.dir, len(Handler.store.reports), len(Handler.store.users)))
+    print("데이터 폴더: %s (일보 %s, 사용자 %d명)" % (Handler.store.dir, ", ".join("%s %d건" % (COLLS[c], len(r)) for c, r in sorted(Handler.store.reports.items(), key=lambda x: COLLS[x[0]])), len(Handler.store.users)))
     print("접속 주소: http://<이 컴퓨터 이름 또는 IP>:%d/   (끝내려면 Ctrl+C)" % args.port)
     try:
         httpd.serve_forever()
